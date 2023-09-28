@@ -86,11 +86,11 @@ impl AisStationData {
         };
         let qa = vec![
             // ERDDAP expects these keys as lower case
-            ("latitude", self.latitude.to_string()),
-            ("longitude", self.longitude.to_string()),
+            ("latitude", format!("{:.3}", self.latitude)),
+            ("longitude", format!("{:.3}", self.longitude)),
             ("time", dt_ref.format("%Y-%m-%dT%H:%M:%SZ").to_string()),
             // ERDDAP expects this key as upper case
-            ("Signal_Power", self.signal_power.to_string()),
+            ("Signal_Power", format!("{:.3}", self.signal_power)),
             ("Station_ID", station_id.to_string()),
             ("MMSI", self.mmsi.to_string()),
         ];
