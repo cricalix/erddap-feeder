@@ -1,9 +1,8 @@
 use axum::{http::StatusCode, response::IntoResponse, routing::post, Json, Router};
-
+use erddap_feeder::{AisCatcherMessage, AisStationData, AisWeatherData};
 use reqwest;
 use serde_json::json;
 use std::net::SocketAddr;
-use erddap_feeder::{AisCatcherMessage, AisStationData, AisWeatherData};
 
 #[tokio::main]
 async fn main() {
@@ -24,17 +23,27 @@ async fn process_ais_message(Json(payload): Json<AisCatcherMessage>) -> impl Int
         payload.stationid,
         payload.receiver.description
     );
-
-    // let mut ais_core = AisCoreData::default();
+    let mut count = 0;
     for msg in payload.msgs {
         let msg_type = msg.msg["type"].as_u64().unwrap();
         match msg_type {
+            // Only want binary broadcast types
             8 => {
-                let asd = AisStationData::from(&msg);
-                tracing::info!("{:?}", asd);
-                let awd = AisWeatherData::from(&msg);
-                tracing::info!("{:?}", awd);
-                send_to_erddap(asd, awd).await;
+                let fid = msg.msg["fid"].as_u64().unwrap();
+                match fid {
+                    // And then the subset that is IMO289 weather
+                    31 => {
+                        let asd = AisStationData::from(&msg);
+                        tracing::info!("{:?}", asd);
+                        let awd = AisWeatherData::from(&msg);
+                        tracing::info!("{:?}", awd);
+                        send_to_erddap(asd, awd).await;
+                        count += 1;
+                    }
+                    _ => {
+                        println!("{:?}", msg);
+                    }
+                }
             }
             _ => {
                 ();
@@ -42,7 +51,7 @@ async fn process_ais_message(Json(payload): Json<AisCatcherMessage>) -> impl Int
         }
     }
 
-    (StatusCode::CREATED, Json(json!({"message": "Processed" })))
+    (StatusCode::OK, Json(json!({"message": format!("Processed {} messages", count) })))
 }
 
 async fn send_to_erddap(station: AisStationData, weather: AisWeatherData) {
