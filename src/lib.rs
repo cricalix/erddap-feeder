@@ -1,8 +1,8 @@
-use serde::Deserialize;
 use chrono::DateTime;
 use chrono::FixedOffset;
 use chrono::NaiveDateTime;
 use chrono::TimeZone;
+use serde::Deserialize;
 use std::collections::HashMap;
 
 #[derive(Deserialize, Debug)]
