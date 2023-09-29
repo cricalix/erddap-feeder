@@ -97,28 +97,38 @@ async fn process_ais_message(
 }
 
 async fn send_to_erddap(station: AisStationData, weather: AisWeatherData, args: State<ArgsState>) {
-    // Build string from component bits
+    // Get the component vectors of kwargs
     let asd_query = station.as_query_arguments();
     let weather_query = weather.as_query_arguments();
     let author = vec![("author", args.author_key.to_string())];
+    // Build the arg string
     let mut query_args = vec![];
     query_args.extend(asd_query);
     query_args.extend(weather_query);
     query_args.extend(author);
+    // Off to ERDDAP we go
     let client = reqwest::Client::new();
     let body = client
         .get(format!("{}.insert", args.url))
         .query(&query_args);
-    let result = body.send().await.unwrap();
-    match result.status() {
-        StatusCode::OK => {
-            tracing::info!("Successful submission");
+    let response = body.send().await;
+    // Errors can happen
+    if let Err(e) = response {
+        if e.is_request() {
+            tracing::error!("Request failed: {:?}", e);
         }
-        StatusCode::NOT_FOUND => {
-            tracing::error!("URL not found. Please check hostname, and path, of the --url.");
-        }
-        _ => {
-            tracing::error!("{:?}", result);
+    } else {
+        let result = response.unwrap();
+        match result.status() {
+            StatusCode::OK => {
+                tracing::info!("Successful submission");
+            }
+            StatusCode::NOT_FOUND => {
+                tracing::error!("URL not found. Please check hostname, and path, of the --url.");
+            }
+            _ => {
+                tracing::error!("{:?}", result);
+            }
         }
     }
 }
