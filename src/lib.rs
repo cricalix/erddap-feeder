@@ -135,3 +135,11 @@ impl AisWeatherData {
         return qa;
     }
 }
+
+// CLI state data for Axum to pass around; everything from args has to be in here
+#[derive(Clone)]
+pub struct ArgsState {
+    pub url: String,
+    pub author_key: String,
+    pub dump_all_packets: bool,
+}

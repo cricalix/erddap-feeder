@@ -1,14 +1,48 @@
-use axum::{http::StatusCode, response::IntoResponse, routing::post, Json, Router};
+use axum::{extract::State, http::StatusCode, response::IntoResponse, routing::post, Json, Router};
+use clap::Parser;
+use erddap_feeder::ArgsState;
 use erddap_feeder::{AisCatcherMessage, AisStationData, AisWeatherData};
 use reqwest;
 use serde_json::json;
 use std::net::SocketAddr;
 
+#[derive(Parser, Debug)]
+#[command(author = "Duncan Hill")]
+#[command(version = "0.1")]
+#[command(about = "Processes JSON AIS weather data, sends to ERDDAP")]
+#[command(long_about = None)]
+struct Args {
+    /// ERDDAP URL, in the form https://server.name/erddap/tabledap/table_name
+    #[arg(short, long)]
+    url: String,
+
+    /// Author key issued by the ERDDAP administrator
+    #[arg(short, long)]
+    author_key: String,
+
+    /// What port to listen on for packets from AIS Catcher
+    #[arg(short, long)]
+    listen_port: u16,
+
+    /// Dump every received JSON packet
+    #[arg(short, long)]
+    dump_all_packets: bool,
+}
+
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt::init();
-    let app = Router::new().route("/aiscatcher", post(process_ais_message));
-    let addr = SocketAddr::from(([0, 0, 0, 0], 7878));
+
+    let args = Args::parse();
+    let args_state = ArgsState {
+        url: args.url.into(),
+        author_key: args.author_key.into(),
+        dump_all_packets: args.dump_all_packets.into(),
+    };
+    let app = Router::new()
+        .route("/aiscatcher", post(process_ais_message))
+        .with_state(args_state);
+    let addr = SocketAddr::from(([0, 0, 0, 0], args.listen_port));
     tracing::info!("listening on {}", addr);
     axum::Server::bind(&addr)
         .serve(app.into_make_service())
@@ -16,8 +50,13 @@ async fn main() {
         .unwrap();
 }
 
-async fn process_ais_message(Json(payload): Json<AisCatcherMessage>) -> impl IntoResponse {
-    // tracing::info!("{:?}", payload);
+async fn process_ais_message(
+    State(args): State<ArgsState>,
+    Json(payload): Json<AisCatcherMessage>,
+) -> impl IntoResponse {
+    if args.dump_all_packets {
+        tracing::info!("{:?}", payload);
+    }
     tracing::info!(
         "Processing packet from {} running {}",
         payload.stationid,
@@ -37,11 +76,11 @@ async fn process_ais_message(Json(payload): Json<AisCatcherMessage>) -> impl Int
                         tracing::info!("{:?}", asd);
                         let awd = AisWeatherData::from(&msg);
                         tracing::info!("{:?}", awd);
-                        send_to_erddap(asd, awd).await;
+                        send_to_erddap(asd, awd, axum::extract::State(args.clone())).await;
                         count += 1;
                     }
                     _ => {
-                        println!("{:?}", msg);
+                        tracing::debug!("Not a weather packet? {:?}", msg);
                     }
                 }
             }
@@ -51,26 +90,32 @@ async fn process_ais_message(Json(payload): Json<AisCatcherMessage>) -> impl Int
         }
     }
 
-    (StatusCode::OK, Json(json!({"message": format!("Processed {} messages", count) })))
+    (
+        StatusCode::OK,
+        Json(json!({"message": format!("Processed {} messages", count) })),
+    )
 }
 
-async fn send_to_erddap(station: AisStationData, weather: AisWeatherData) {
+async fn send_to_erddap(station: AisStationData, weather: AisWeatherData, args: State<ArgsState>) {
     // Build string from component bits
     let asd_query = station.as_query_arguments();
     let weather_query = weather.as_query_arguments();
-    let author = vec![("author", "test_Quantum15".to_string())];
+    let author = vec![("author", args.author_key.to_string())];
     let mut query_args = vec![];
     query_args.extend(asd_query);
     query_args.extend(weather_query);
     query_args.extend(author);
     let client = reqwest::Client::new();
     let body = client
-        .get("https://erddap.home.arpa/erddap/tabledap/dublin_bay_ais_weather_data.insert")
+        .get(format!("{}.insert", args.url))
         .query(&query_args);
     let result = body.send().await.unwrap();
     match result.status() {
         StatusCode::OK => {
             tracing::info!("Successful submission");
+        }
+        StatusCode::NOT_FOUND => {
+            tracing::error!("URL not found. Please check hostname, and path, of the --url.");
         }
         _ => {
             tracing::error!("{:?}", result);
