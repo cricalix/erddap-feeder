@@ -9,6 +9,7 @@ use reqwest;
 use serde_json::json;
 use std::collections::HashMap;
 use std::net::SocketAddr;
+use indoc::printdoc;
 
 const APP_NAME: &str = "erddap-feeder";
 enum EXITS {
@@ -24,8 +25,6 @@ enum EXITS {
 #[derive(Parser, Debug)]
 #[command(author = "Duncan Hill")]
 #[command(version = "0.1")]
-// #[command(about = "Processes JSON AIS weather data, sends to ERDDAP")]
-
 /// Processes JSON AIS weather data emitted from AIS-catcher in HTTP mode, then
 /// sends the processed data as a HTTP GET request to an ERDDAP server. The
 /// ERDDAP server must be operating in a TLS-secured manner for the GET to be
@@ -43,14 +42,21 @@ struct Args {
     /// Dump every received JSON packet
     #[arg(short, long)]
     dump_all_packets: bool,
+
+    /// A user manual of sorts
+    #[arg(short, long)]
+    user_manual: bool,
 }
 
 #[tokio::main]
 async fn main() {
-    tracing_subscriber::fmt::init();
-
     let args = Args::parse();
+    if args.user_manual {
+        user_manual();
+        std::process::exit(0);
+    }
     let app_config = load_config();
+    tracing_subscriber::fmt::init();
     tracing::info!("ERDDAP URL: {}", app_config.erddap_url);
     // Convert the config.mmsi_lookup vector of objects to a map of name to station id
     // This enables the station data as_query_arguments function to map the MMSI in the
@@ -253,5 +259,24 @@ async fn send_to_erddap(station: AisStationData, weather: AisWeatherData, args: 
                 tracing::error!("{:?}", result);
             }
         }
+    }
+}
+
+fn user_manual() {
+    printdoc! {
+        "User Manual
+        ############
+
+        Bind Address
+        ============
+        The bind address, or listen address, is the IP address and port that this software should listen on for connections from
+        AIS-catcher. The default is the IPv4 syntax for 'any valid interface', namely '0.0.0.0'. If you're in an IPv6 world, and
+        want to listen to both IPv4 and IPv6 ports, use '--bind-address [::]:22022' (or any other port of your choice).
+
+        TLS
+        ===
+        This program does not do TLS on the listen address. It probably shouldn't be exposed to the Internet either. If you need
+        TLS support, use something like Caddy or nginx to provide a reverse proxy.
+"
     }
 }
