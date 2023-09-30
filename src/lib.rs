@@ -157,6 +157,7 @@ impl AisWeatherData {
 pub struct AppConfig {
     pub erddap_url: String,
     pub erddap_key: String,
+    pub ignore_mmsi: Vec<u64>,
     /// Map MMSIs to string names
     pub mmsi_lookup: Vec<MMSILookup>,
 }
@@ -169,12 +170,13 @@ pub struct MMSILookup {
 impl ::std::default::Default for AppConfig {
     fn default() -> Self {
         Self {
+            erddap_url: DEFAULT_URL.to_string(),
+            erddap_key: DEFAULT_KEY.to_string(),
+            ignore_mmsi: vec![],
             mmsi_lookup: vec![MMSILookup {
                 mmsi: DEFAULT_MMSI.to_string(),
                 station_id: "MMSI Name".to_string(),
             }],
-            erddap_url: DEFAULT_URL.to_string(),
-            erddap_key: DEFAULT_KEY.to_string(),
         }
     }
 }
@@ -186,4 +188,5 @@ pub struct ArgsState {
     pub author_key: String,
     pub dump_all_packets: bool,
     pub mmsi_lookup: HashMap<String, String>,
+    pub ignore_mmsi: Vec<u64>,
 }

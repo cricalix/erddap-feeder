@@ -5,11 +5,11 @@ use erddap_feeder::AppConfig;
 use erddap_feeder::ArgsState;
 use erddap_feeder::{AisCatcherMessage, AisStationData, AisWeatherData};
 use erddap_feeder::{DEFAULT_KEY, DEFAULT_MMSI, DEFAULT_URL};
+use indoc::printdoc;
 use reqwest;
 use serde_json::json;
 use std::collections::HashMap;
 use std::net::SocketAddr;
-use indoc::printdoc;
 
 const APP_NAME: &str = "erddap-feeder";
 enum EXITS {
@@ -55,8 +55,8 @@ async fn main() {
         user_manual();
         std::process::exit(0);
     }
-    let app_config = load_config();
     tracing_subscriber::fmt::init();
+    let app_config = load_config();
     tracing::info!("ERDDAP URL: {}", app_config.erddap_url);
     // Convert the config.mmsi_lookup vector of objects to a map of name to station id
     // This enables the station data as_query_arguments function to map the MMSI in the
@@ -71,8 +71,8 @@ async fn main() {
         author_key: app_config.erddap_key.into(),
         dump_all_packets: args.dump_all_packets.into(),
         mmsi_lookup: mmsi_to_station_id_map.into(),
+        ignore_mmsi: app_config.ignore_mmsi.into(),
     };
-
 
     // Start a router for the POST requests that AIS-catcher sends.
     let app = Router::new()
@@ -205,7 +205,11 @@ async fn process_ais_message(
                         tracing::info!("{:?}", asd);
                         let awd = AisWeatherData::from(&msg);
                         tracing::info!("{:?}", awd);
-                        send_to_erddap(asd, awd, axum::extract::State(args.clone())).await;
+                        if args.ignore_mmsi.contains(&asd.mmsi) {
+                            tracing::debug!("Ignored packet from {}", asd.mmsi);
+                        } else {
+                            send_to_erddap(asd, awd, axum::extract::State(args.clone())).await;
+                        }
                         count += 1;
                     }
                     _ => {
@@ -253,7 +257,10 @@ async fn send_to_erddap(station: AisStationData, weather: AisWeatherData, args: 
                 tracing::info!("Successful submission");
             }
             StatusCode::NOT_FOUND => {
-                tracing::error!("URL not found. Please check hostname and path of {}.", args.url);
+                tracing::error!(
+                    "URL not found. Please check hostname and path of {}.",
+                    args.url
+                );
             }
             _ => {
                 tracing::error!("{:?}", result);
