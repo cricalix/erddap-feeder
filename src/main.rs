@@ -79,9 +79,7 @@ async fn main() {
         .route("/aiscatcher", post(process_ais_message))
         .with_state(args_state);
 
-    // let addr = SocketAddr::from((args.bind_address, args.bind_port));
     tracing::info!("Listening on {}", args.bind_address);
-
     // Let's go!
     axum::Server::bind(&args.bind_address)
         .serve(app.into_make_service())
@@ -212,13 +210,14 @@ async fn process_ais_message(
                         }
                         count += 1;
                     }
+                    10 => (), // Probably inland ship static (DAC has to be 200 for that to be true)
                     _ => {
                         tracing::warn!("Not a weather packet? {:?}", msg);
                     }
                 }
             }
             _ => {
-                ();
+                (); // Pretty much anything else listed on https://gpsd.gitlab.io/gpsd/AIVDM.html
             }
         }
     }

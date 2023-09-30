@@ -11,7 +11,7 @@ pub const DEFAULT_URL: &str = "https://erddap.example.com/erddap/tabledap/data_s
 pub const DEFAULT_KEY: &str = "username_password";
 
 #[derive(Deserialize, Debug)]
-/// Data about the AIS receiver
+/// Data about the AIS receiver software
 pub struct AisCatcherReceiver {
     /// The description from AIS-catcher
     pub description: String,
@@ -26,6 +26,9 @@ pub struct AisCatcherReceiver {
     pub setting: String,
 }
 
+/// Data about the AIS receiver device;
+// Nothing in here is used by this program, but the struct is needed to decode
+// the input, and might be useful some day.
 #[derive(Deserialize, Debug)]
 pub struct AisCatcherDevice {
     #[allow(dead_code)]
@@ -51,25 +54,33 @@ pub struct AisCatcherMessage {
     pub protocol: String,
     #[allow(dead_code)]
     pub encodetime: String,
-    // This is the name that AIS-catcher identifies itself with, not the station ID
-    // of the broadcast source (for weather, only MMSI is present)
+    /// This is the name that AIS-catcher identifies itself with, not the station ID
+    /// of the broadcast source (for weather, only MMSI is present)
     pub stationid: String,
-    // Details about the AIS-catcher receiver itself
+    /// Details about the AIS-catcher receiver itself
     pub receiver: AisCatcherReceiver,
     #[allow(dead_code)]
+    /// Details about the hardware used by AIS-catcher
     pub device: AisCatcherDevice,
     pub msgs: Vec<AisMessage>,
 }
 
 #[derive(Debug, Default)]
 pub struct AisStationData {
+    /// The latitude of the station sending the AIS message
     pub latitude: f64,
+    /// The longitude of the station sending the AIS message
     pub longitude: f64,
+    /// The Mobile Marine Service Identifier - 9 digits. ATON will start 99.
     pub mmsi: u64,
+    /// The signal power reported by AIS-catcher - how strong the signal from the station is
     pub signal_power: f64,
+    /// The received time of the message, set by AIS-catcher based on the local clock
+    /// Time is UTC/Zulu.
     pub rxtime: DateTime<FixedOffset>,
 }
 
+/// Extracts fields from the AisMessage structure, and produces an AisStationData structure
 impl From<&AisMessage> for AisStationData {
     fn from(f: &AisMessage) -> Self {
         // Deal with the fact that the string rxtime is not in any known format for auto
@@ -89,6 +100,8 @@ impl From<&AisMessage> for AisStationData {
     }
 }
 
+/// Converts an AisStationData into a set of key/value pairs that line up with what the ERDDAP
+/// system is configured to store.
 impl AisStationData {
     pub fn as_query_arguments(&self, mmsi_lookup: &HashMap<String, String>) -> Vec<(&str, String)> {
         let unknown = "UNKNOWN".to_string();
@@ -113,15 +126,22 @@ impl AisStationData {
 
 #[derive(Debug, Default)]
 pub struct AisWeatherData {
+    /// Wind speed in knots. 126 = wind >= 126 knots, 127 = N/A
     pub wind_speed: u64,
+    /// Wind gust speed in knots. 126 = wind >= 126 knots, 127 = N/A
     pub wind_gust_speed: u64,
+    /// Wind bearing in degrees true, 0-359, 360 = N/A
     pub wind_direction: u64,
+    /// Wind gust bearing in degrees true, 0-359, 360 = N/A
     pub wind_gust_direction: u64,
+    /// Wave height in metres. 0 - 25m in 0.1. 251 = height >= 25.1. 255 = N/A
     pub wave_height: f64,
+    /// Wave period in seconds. 0 - 60. 63 = N/A
     pub wave_period: u64,
     // air_pressure: u64,
 }
 
+/// Extracts fields from the AisMessage structure, and produces an AisWeatherData structure
 impl From<&AisMessage> for AisWeatherData {
     fn from(f: &AisMessage) -> Self {
         AisWeatherData {
@@ -136,6 +156,8 @@ impl From<&AisMessage> for AisWeatherData {
     }
 }
 
+/// Converts an AisWeatherData into a set of key/value pairs that line up with what the ERDDAP
+/// system is configured to store.
 impl AisWeatherData {
     pub fn as_query_arguments(&self) -> Vec<(&str, String)> {
         let qa = vec![
@@ -155,12 +177,17 @@ impl AisWeatherData {
 /// Application configuration from file
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct AppConfig {
+    /// URL of the ERDDAP service, including protocol and path, not including .insert
     pub erddap_url: String,
+    /// Username_Password author key for the ERDDAP service
     pub erddap_key: String,
+    /// List of MMSIs to ignore and not process
     pub ignore_mmsi: Vec<u64>,
     /// Map MMSIs to string names
     pub mmsi_lookup: Vec<MMSILookup>,
 }
+
+/// A TOML table entry for a MMSI and the station name to use for that MMSI
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct MMSILookup {
     pub mmsi: String,
