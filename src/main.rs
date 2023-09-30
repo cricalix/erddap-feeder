@@ -209,7 +209,7 @@ async fn process_ais_message(
                         count += 1;
                     }
                     _ => {
-                        tracing::debug!("Not a weather packet? {:?}", msg);
+                        tracing::warn!("Not a weather packet? {:?}", msg);
                     }
                 }
             }
@@ -253,7 +253,7 @@ async fn send_to_erddap(station: AisStationData, weather: AisWeatherData, args: 
                 tracing::info!("Successful submission");
             }
             StatusCode::NOT_FOUND => {
-                tracing::error!("URL not found. Please check hostname, and path, of the --url.");
+                tracing::error!("URL not found. Please check hostname and path of {}.", args.url);
             }
             _ => {
                 tracing::error!("{:?}", result);
