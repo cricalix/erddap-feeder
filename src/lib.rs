@@ -3,16 +3,26 @@ use chrono::FixedOffset;
 use chrono::NaiveDateTime;
 use chrono::TimeZone;
 use serde::Deserialize;
+use serde::Serialize;
 use std::collections::HashMap;
 
+pub const DEFAULT_MMSI: &str = "00000";
+pub const DEFAULT_URL: &str = "https://erddap.example.com/erddap/tabledap/data_set";
+pub const DEFAULT_KEY: &str = "username_password";
+
 #[derive(Deserialize, Debug)]
+/// Data about the AIS receiver
 pub struct AisCatcherReceiver {
+    /// The description from AIS-catcher
     pub description: String,
     #[allow(dead_code)]
+    /// Version of AIS-catcher
     pub version: u32,
     #[allow(dead_code)]
+    /// Engine name from AIS-catcher
     pub engine: String,
     #[allow(dead_code)]
+    /// ???
     pub setting: String,
 }
 
@@ -29,8 +39,10 @@ pub struct AisCatcherDevice {
 }
 
 #[derive(Deserialize, Debug)]
+/// Messages received by AIS-catcher and decoded to JSON
 pub struct AisMessage {
     #[serde(flatten)]
+    /// The key-value map of the message
     pub msg: HashMap<String, serde_json::Value>,
 }
 #[derive(Deserialize, Debug)]
@@ -39,7 +51,10 @@ pub struct AisCatcherMessage {
     pub protocol: String,
     #[allow(dead_code)]
     pub encodetime: String,
+    // This is the name that AIS-catcher identifies itself with, not the station ID
+    // of the broadcast source (for weather, only MMSI is present)
     pub stationid: String,
+    // Details about the AIS-catcher receiver itself
     pub receiver: AisCatcherReceiver,
     #[allow(dead_code)]
     pub device: AisCatcherDevice,
@@ -57,6 +72,8 @@ pub struct AisStationData {
 
 impl From<&AisMessage> for AisStationData {
     fn from(f: &AisMessage) -> Self {
+        // Deal with the fact that the string rxtime is not in any known format for auto
+        // conversion.
         let chrono_ref =
             NaiveDateTime::parse_from_str(f.msg["rxtime"].as_str().unwrap(), "%Y%m%d%H%M%S")
                 .unwrap();
@@ -67,26 +84,25 @@ impl From<&AisMessage> for AisStationData {
             longitude: f.msg["lon"].as_f64().unwrap(),
             mmsi: f.msg["mmsi"].as_u64().unwrap(),
             signal_power: f.msg["signalpower"].as_f64().unwrap(),
-            // Ewww?
             rxtime: dt_ref,
         }
     }
 }
 
 impl AisStationData {
-    pub fn as_query_arguments(&self) -> Vec<(&str, String)> {
-        let station_id = match self.mmsi.to_string().as_str() {
-            "992509976" => "TEST_CIL_ATON",
-            "992501301" => "Dublin_Bay_Buoy",
-            "992501017" => "Kish_Lighthouse",
-            _ => "UNKNOWN",
+    pub fn as_query_arguments(&self, mmsi_lookup: &HashMap<String, String>) -> Vec<(&str, String)> {
+        let unknown = "UNKNOWN".to_string();
+        let station_id = match mmsi_lookup.get(&self.mmsi.to_string()) {
+            Some(val) => val,
+            _ => &unknown,
         };
+
         let qa = vec![
             // ERDDAP expects these keys as lower case
             ("latitude", format!("{:.3}", self.latitude)),
             ("longitude", format!("{:.3}", self.longitude)),
             ("time", self.rxtime.format("%Y-%m-%dT%H:%M:%SZ").to_string()),
-            // ERDDAP expects this key as upper case
+            // ERDDAP expects these keys as upper cased
             ("Signal_Power", format!("{:.3}", self.signal_power)),
             ("Station_ID", station_id.to_string()),
             ("MMSI", self.mmsi.to_string()),
@@ -123,7 +139,7 @@ impl From<&AisMessage> for AisWeatherData {
 impl AisWeatherData {
     pub fn as_query_arguments(&self) -> Vec<(&str, String)> {
         let qa = vec![
-            // ERDDAP expects these keys as lower case
+            // ERDDAP expects these keys as upper cased snake
             ("Wind_Speed", self.wind_speed.to_string()),
             ("Wind_Gust_Speed", self.wind_gust_speed.to_string()),
             ("Wind_Direction", self.wind_direction.to_string()),
@@ -136,10 +152,38 @@ impl AisWeatherData {
     }
 }
 
-// CLI state data for Axum to pass around; everything from args has to be in here
+/// Application configuration from file
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct AppConfig {
+    pub erddap_url: String,
+    pub erddap_key: String,
+    /// Map MMSIs to string names
+    pub mmsi_lookup: Vec<MMSILookup>,
+}
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct MMSILookup {
+    pub mmsi: String,
+    pub station_id: String,
+}
+
+impl ::std::default::Default for AppConfig {
+    fn default() -> Self {
+        Self {
+            mmsi_lookup: vec![MMSILookup {
+                mmsi: DEFAULT_MMSI.to_string(),
+                station_id: "MMSI Name".to_string(),
+            }],
+            erddap_url: DEFAULT_URL.to_string(),
+            erddap_key: DEFAULT_KEY.to_string(),
+        }
+    }
+}
+
+/// CLI state data for Axum to pass around; everything from args has to be in here
 #[derive(Clone)]
 pub struct ArgsState {
     pub url: String,
     pub author_key: String,
     pub dump_all_packets: bool,
+    pub mmsi_lookup: HashMap<String, String>,
 }
