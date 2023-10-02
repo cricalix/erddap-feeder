@@ -1,0 +1,2 @@
+[  "time",  "mmsi",  "station_name",  "longitude",  "latitude",  "wspeed",  "wgust",  "wdir",  "wgustdir",  "waveheight",  "waveperiod",  "airtemp",  "dewpoint", "pressure",  "pressuretend",  "visibility",  "waterlevel",  "leveltrend",  "timestamp",  "author",  "command"]
+[ "2023-09-01T22:08:55Z",  999999999,  "Initial_Data",  181.0,  91.0,  127,  127,  360,  360,  25.5,  63,  -1024,  50.1,  511,  3,  12.7,  40.01,  3,  0,  "INITRECORD",  0]

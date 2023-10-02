@@ -1,0 +1,384 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<erddapDatasets>
+    <dataset type="EDDTableFromHttpGet" datasetID="ais_weather_data" active="true">
+        <reloadEveryNMinutes>20</reloadEveryNMinutes>
+        <updateEveryNMillis>-1</updateEveryNMillis>
+        <fileDir>/erddapData/sources/asi_weather_data/</fileDir>
+        <fileNameRegex>.*\.jsonl</fileNameRegex>
+        <recursive>true</recursive>
+        <pathRegex>.*</pathRegex>
+        <metadataFrom>last</metadataFrom>
+        <sortedColumnSourceName></sortedColumnSourceName>
+        <sortFilesBySourceNames>mmsi</sortFilesBySourceNames>
+        <fileTableInMemory>false</fileTableInMemory>
+        <accessibleViaFiles>true</accessibleViaFiles>
+        <!-- sourceAttributes>
+        </sourceAttributes -->
+        <!-- Please specify the actual cdm_data_type (TimeSeries?) and related info below, for example...
+            <att name="cdm_timeseries_variables">station_id, longitude, latitude</att>
+            <att name="subsetVariables">station_id, longitude, latitude</att>
+        -->
+        <addAttributes>
+            <att name="cdm_data_type">TimeSeries</att>
+            <att name="date_created">2023-10-01</att>
+            <att name="Conventions">COARDS, CF-1.10, ACDD-1.3</att>
+            <att name="creator_name">YOUR NAME HERE</att>
+            <att name="creator_url">YOUR URL HERE</att>
+            <att name="httpGetDirectoryStructure">mmsi/10years</att>
+            <att name="httpGetKeys">ERDDAP_KEYS_HERE</att>
+            <att name="httpGetRequiredVariables">mmsi,station_name,time</att>
+            <att name="infoUrl">YOUR_INFO_URL_HERE</att>
+            <att name="institution">YOUR_INSTITUTION_HERE</att>
+            <att name="keywords">atmosphere, atmospheric, author, command, data, earth, Earth Science &gt; Atmosphere &gt; Atmospheric Variable Winds &gt; Surface Winds, Earth Science &gt; Oceans &gt; Ocean Waves &gt; Significant Wave Height, Earth Science &gt; Oceans &gt; Ocean Waves &gt; Swells, Earth Science &gt; Oceans &gt; Ocean Waves &gt; Wave Period, gust, height, latitude, local, longitude, mmsi, ocean, oceans, period, science, sea, sea_surface_swell_wave_period, sea_surface_wave_significant_height, signalpower, significant, source, speed, surface, surface waves, swell, swells, time, timestamp, wave, waveheight, waveperiod, waves, wdir, wgust, wgustdir, wind, wind_speed_of_gust, winds, wspeed</att>
+            <att name="keywords_vocabulary">GCMD Science Keywords</att>
+            <att name="license">[standard]</att>
+            <att name="sourceUrl">(local files)</att>
+            <att name="standard_name_vocabulary">CF Standard Name Table v70</att>
+            <att name="subsetVariables">mmsi, station_name</att>
+            <att name="cdm_timeseries_variables">station_name</att>
+            <att name="contributor_name">SOURCE_OF_DATA_AS_CONTRIBUTOR_HERE</att>
+            <att name="processing_level">2</att>
+            <att name="summary">Summary of where data comes from. The rest of this is ERDDAP boilerplate.
+
+    NOTE! This is an unusual dataset in that the data files are actually log files. Normally, when you request data from this dataset, ERDDAP processes the insert (command=0) and delete (command=1) commands in the log files to return data from the current version of this dataset. However, if you make a request which includes &amp;timestamp&lt;= , then ERDDAP will return the dataset as it was at that point in time. Or, if you make a request which includes &amp;timestamp&gt; (or &gt;= or =), e.g., &amp;timestamp&gt;0, then ERDDAP will return the raw data from the log files.</att>
+            <att name="testOutOfDate">now-1day</att>
+            <att name="title">TITLE_OF_DATASET_HERE</att>
+        </addAttributes>
+        <dataVariable>
+            <sourceName>time</sourceName>
+            <destinationName>time</destinationName>
+            <dataType>String</dataType>
+            <!-- sourceAttributes>
+            </sourceAttributes -->
+            <addAttributes>
+                <att name="ioos_category">Time</att>
+                <att name="long_name">Time</att>
+                <att name="standard_name">time</att>
+                <att name="time_precision">1970-01-01T00:00:00Z</att>
+                <att name="units">yyyy-MM-dd&#39;T&#39;HH:mm:ss&#39;Z&#39;</att>
+            </addAttributes>
+        </dataVariable>
+        <dataVariable>
+            <sourceName>station_name</sourceName>
+            <destinationName>station_name</destinationName>
+            <dataType>String</dataType>
+            <!-- sourceAttributes>
+            </sourceAttributes -->
+            <addAttributes>
+                <att name="ioos_category">Identifier</att>
+                <att name="long_name">Station Name</att>
+                <att name="cf_role">timeseries_id</att>
+            </addAttributes>
+        </dataVariable>
+        <dataVariable>
+            <sourceName>mmsi</sourceName>
+            <destinationName>mmsi</destinationName>
+            <dataType>uint</dataType>
+            <!-- sourceAttributes>
+            </sourceAttributes -->
+            <addAttributes>
+                <att name="ioos_category">Identifier</att>
+                <att name="long_name">Maritime Mobile Service Identity</att>
+            </addAttributes>
+        </dataVariable>
+        <dataVariable>
+            <sourceName>longitude</sourceName>
+            <destinationName>longitude</destinationName>
+            <dataType>double</dataType>
+            <!-- sourceAttributes>
+            </sourceAttributes -->
+            <addAttributes>
+                <att name="colorBarMaximum" type="double">180.0</att>
+                <att name="colorBarMinimum" type="double">-180.0</att>
+                <att name="ioos_category">Location</att>
+                <att name="long_name">Longitude</att>
+                <att name="missing_value" type="double">181.0</att>
+                <att name="standard_name">longitude</att>
+                <att name="units">degrees_east</att>
+            </addAttributes>
+        </dataVariable>
+        <dataVariable>
+            <sourceName>latitude</sourceName>
+            <destinationName>latitude</destinationName>
+            <dataType>double</dataType>
+            <!-- sourceAttributes>
+            </sourceAttributes -->
+            <addAttributes>
+                <att name="colorBarMaximum" type="double">90.0</att>
+                <att name="colorBarMinimum" type="double">-90.0</att>
+                <att name="ioos_category">Location</att>
+                <att name="long_name">Latitude</att>
+                <att name="missing_value" type="double">91.0</att>
+                <att name="standard_name">latitude</att>
+                <att name="units">degrees_north</att>
+            </addAttributes>
+        </dataVariable>
+        <dataVariable>
+            <sourceName>wspeed</sourceName>
+            <destinationName>wspeed</destinationName>
+            <dataType>byte</dataType>
+            <!-- sourceAttributes>
+            </sourceAttributes -->
+            <addAttributes>
+                <att name="colorBarMaximum" type="double">126.0</att>
+                <att name="colorBarMinimum" type="double">0.0</att>
+                <att name="ioos_category">Wind</att>
+                <att name="long_name">Wind Speed (10 minute average)</att>
+                <att name="missing_value" type="byte">127.0</att>
+                <att name="standard_name">wind_speed</att>
+                <att name="units">knots</att>
+            </addAttributes>
+        </dataVariable>
+        <dataVariable>
+            <sourceName>wgust</sourceName>
+            <destinationName>wgust</destinationName>
+            <dataType>byte</dataType>
+            <!-- sourceAttributes>
+            </sourceAttributes -->
+            <addAttributes>
+                <att name="colorBarMaximum" type="double">126.0</att>
+                <att name="colorBarMinimum" type="double">0.0</att>
+                <att name="ioos_category">Wind</att>
+                <att name="long_name">Wind Speed Of Gust</att>
+                <att name="missing_value" type="byte">127</att>
+                <att name="standard_name">wind_speed_of_gust</att>
+                <att name="units">knots</att>
+            </addAttributes>
+        </dataVariable>
+        <dataVariable>
+            <sourceName>wdir</sourceName>
+            <destinationName>wdir</destinationName>
+            <dataType>ushort</dataType>
+            <!-- sourceAttributes>
+            </sourceAttributes -->
+            <addAttributes>
+                <att name="colorBarMaximum" type="ushort">359</att>
+                <att name="colorBarMinimum" type="ushort">0</att>
+                <att name="ioos_category">Wind</att>
+                <att name="long_name">Wind Direction</att>
+                <att name="missing_value" type="ushort">360</att>
+                <att name="standard_name">wind_from_direction</att>
+                <att name="units">degrees</att>
+            </addAttributes>
+        </dataVariable>
+        <dataVariable>
+            <sourceName>wgustdir</sourceName>
+            <destinationName>wgustdir</destinationName>
+            <dataType>ushort</dataType>
+            <!-- sourceAttributes>
+            </sourceAttributes -->
+            <addAttributes>
+                <att name="colorBarMaximum" type="ushort">359</att>
+                <att name="colorBarMinimum" type="ushort">0</att>
+                <att name="ioos_category">Wind</att>
+                <att name="long_name">Wind Direction Of Gust</att>
+                <att name="missing_value" type="ushort">360</att>
+                <att name="standard_name">wind_from_direction</att>
+                <att name="units">degrees</att>
+            </addAttributes>
+        </dataVariable>
+        <dataVariable>
+            <sourceName>airtemp</sourceName>
+            <destinationName>airtemp</destinationName>
+            <dataType>float</dataType>
+            <!-- sourceAttributes>
+            </sourceAttributes -->
+            <addAttributes>
+                <att name="colorBarMaximum" type="float">60.0</att>
+                <att name="colorBarMinimum" type="float">-60.0</att>
+                <att name="ioos_category">Temperature</att>  <!-- Atmospheric Variable really -->
+                <att name="long_name">Air Temperature</att>
+                <att name="missing_value" type="float">-1024</att>
+                <att name="standard_name">air_temperature</att>
+                <att name="units">degrees_C</att>
+            </addAttributes>
+        </dataVariable>
+        <dataVariable>
+            <sourceName>dewpoint</sourceName>
+            <destinationName>dewpoint</destinationName>
+            <dataType>float</dataType>
+            <!-- sourceAttributes>
+            </sourceAttributes -->
+            <addAttributes>
+                <att name="colorBarMaximum" type="float">50.0</att>
+                <att name="colorBarMinimum" type="float">-20.0</att>
+                <att name="ioos_category">Temperature</att>  <!-- Atmospheric Variable really -->
+                <att name="long_name">Dew Point Temperature</att>
+                <att name="missing_value" type="float">50.1</att>
+                <att name="standard_name">dew_point_temperature</att>
+                <att name="units">degrees_C</att>
+            </addAttributes>
+        </dataVariable>
+        <dataVariable>
+            <sourceName>pressure</sourceName>
+            <destinationName>pressure</destinationName>
+            <dataType>uint</dataType>
+            <!-- sourceAttributes>
+            </sourceAttributes -->
+            <addAttributes>
+                <att name="colorBarMaximum" type="uint">1200</att>
+                <att name="colorBarMinimum" type="uint">800</att>
+                <att name="ioos_category">Meteorology</att>
+                <att name="long_name">Air Pressure</att>
+                <att name="missing_value" type="uint">511</att>
+                <att name="standard_name">air_pressure</att>
+                <att name="units">hPa</att>
+            </addAttributes>
+        </dataVariable>
+        <dataVariable>
+            <sourceName>pressuretend</sourceName>
+            <destinationName>pressuretend</destinationName>
+            <dataType>byte</dataType>
+            <!-- sourceAttributes>
+            </sourceAttributes -->
+            <addAttributes>
+                <att name="comment">Flag indicating pressure tendency; 0 steady, 1 decreasing, 2 increasing.</att>
+                <att name="flag_meanings">steady decreasing increasing</att>
+                <att name="flag_values" type="byteList">0 1 2</att>
+                <att name="ioos_category">Meteorology</att>
+                <att name="long_name">Air Pressure Tendency</att>
+                <att name="standard_name">tendency_of_air_pressure</att>
+                <att name="missing_value" type="byte">3</att>
+            </addAttributes>
+        </dataVariable>
+        <!-- vis greater needs sorting -->
+        <dataVariable>
+            <sourceName>visibility</sourceName>
+            <destinationName>visibility</destinationName>
+            <dataType>float</dataType>
+            <!-- sourceAttributes>
+            </sourceAttributes -->
+            <addAttributes>
+                <att name="colorBarMaximum" type="float">12.6</att>
+                <att name="colorBarMinimum" type="float">0.0</att>
+                <att name="ioos_category">Meteorology</att>
+                <att name="long_name">Visibility</att>
+                <att name="missing_value" type="float">12.7</att>
+                <att name="standard_name">visibility</att>
+                <att name="units">nm</att>
+            </addAttributes>
+        </dataVariable>
+        <dataVariable>
+            <sourceName>waterlevel</sourceName>
+            <destinationName>waterlevel</destinationName>
+            <dataType>float</dataType>
+            <!-- sourceAttributes>
+            </sourceAttributes -->
+            <addAttributes>
+                <att name="colorBarMaximum" type="float">30.0</att>
+                <att name="colorBarMinimum" type="float">-10.0</att>
+                <att name="ioos_category">Unknown</att>
+                <att name="long_name">Water Level</att>
+                <att name="missing_value" type="float">40.01</att>
+                <!-- att name="standard_name">waterlevel</att -->
+                <att name="units">metres</att>
+            </addAttributes>
+        </dataVariable>
+        <dataVariable>
+            <sourceName>leveltrend</sourceName>
+            <destinationName>leveltrend</destinationName>
+            <dataType>byte</dataType>
+            <!-- sourceAttributes>
+            </sourceAttributes -->
+            <addAttributes>
+                <att name="comment">Flag indicating water level trend; 0 steady, 1 decreasing, 2 increasing.</att>
+                <att name="flag_meanings">steady decreasing increasing</att>
+                <att name="flag_values" type="byteList">0 1 2</att>
+                <att name="ioos_category">Unknown</att>
+                <att name="long_name">Water Level Trend</att>
+                <!-- att name="standard_name">trend_of_water_level</att -->
+                <att name="missing_value" type="byte">3</att>
+            </addAttributes>
+        </dataVariable>
+        <dataVariable>
+            <sourceName>waveheight</sourceName>
+            <destinationName>waveheight</destinationName>
+            <dataType>float</dataType>
+            <!-- sourceAttributes>
+            </sourceAttributes -->
+            <addAttributes>
+                <att name="colorBarMaximum" type="float">25.1</att>
+                <att name="colorBarMinimum" type="float">0.0</att>
+                <att name="ioos_category">Surface Waves</att>
+                <att name="long_name">Sea Surface Wave Significant Height</att>
+                <att name="missing_value" type="float">25.5</att>
+                <att name="standard_name">sea_surface_wave_significant_height</att>
+                <att name="units">metres</att>
+            </addAttributes>
+        </dataVariable>
+        <dataVariable>
+            <sourceName>waveperiod</sourceName>
+            <destinationName>waveperiod</destinationName>
+            <dataType>ushort</dataType>
+            <!-- sourceAttributes>
+            </sourceAttributes -->
+            <addAttributes>
+                <att name="colorBarMaximum" type="float">62.0</att>
+                <att name="colorBarMinimum" type="float">0.0</att>
+                <att name="ioos_category">Surface Waves</att>
+                <att name="long_name">Sea Surface Swell Wave Period</att>
+                <att name="missing_value" type="float">63</att>
+                <att name="standard_name">sea_surface_swell_wave_period</att>
+                <att name="units">seconds</att>
+            </addAttributes>
+        </dataVariable>
+        <dataVariable>
+            <sourceName>ice</sourceName>
+            <destinationName>ice</destinationName>
+            <dataType>byte</dataType>
+            <!-- sourceAttributes>
+            </sourceAttributes -->
+            <addAttributes>
+                <att name="comment">Flag indicating ice presence; 0 No, 1 Yes</att>
+                <att name="flag_meanings">no yes</att>
+                <att name="flag_values" type="byteList">0 1</att>
+                <att name="ioos_category">Unknown</att>
+                <att name="long_name">Ice presence</att>
+                <!-- att name="standard_name">trend_of_water_level</att -->
+                <att name="missing_value" type="byte">3</att>
+            </addAttributes>
+        </dataVariable>
+        <dataVariable>
+            <sourceName>timestamp</sourceName>
+            <destinationName>timestamp</destinationName>
+            <dataType>double</dataType>
+            <!-- sourceAttributes>
+            </sourceAttributes -->
+            <addAttributes>
+                <att name="comment">The values in this column are added by ERDDAP to identify when each row of data was added to the data file. NOTE! This is an unusual dataset in that the data files are actually log files. Normally, when you request data from this dataset, ERDDAP processes the insert (command=0) and delete (command=1) commands in the log files to return data from the current version of this dataset. However, if you make a request which includes &amp;timestamp&lt;= , then ERDDAP will return the dataset as it was at that point in time. Or, if you make a request which includes &amp;timestamp&gt; (or &gt;= or =), e.g., &amp;timestamp&gt;0, then ERDDAP will return the raw data from the log files.</att>
+                <att name="ioos_category">Time</att>
+                <att name="long_name">Timestamp</att>
+                <att name="missing_value" type="double">NaN</att>
+                <att name="time_precision">1970-01-01T00:00:00.000Z</att>
+                <att name="units">seconds since 1970-01-01T00:00:00Z</att>
+            </addAttributes>
+        </dataVariable>
+        <dataVariable>
+            <sourceName>author</sourceName>
+            <destinationName>author</destinationName>
+            <dataType>String</dataType>
+            <!-- sourceAttributes>
+            </sourceAttributes -->
+            <addAttributes>
+                <att name="comment">The values in this column identify the author who added each row of data to the dataset.</att>
+                <att name="ioos_category">Unknown</att>
+                <att name="long_name">Author</att>
+            </addAttributes>
+        </dataVariable>
+        <dataVariable>
+            <sourceName>command</sourceName>
+            <destinationName>command</destinationName>
+            <dataType>byte</dataType>
+            <!-- sourceAttributes>
+            </sourceAttributes -->
+            <addAttributes>
+                <att name="comment">Flag indicating insertion (0) or deletion (1) of records, due to the backing format being a log file.</att>
+                <att name="flag_meanings">insert delete</att>
+                <att name="flag_values" type="byteList">0 1</att>
+                <att name="ioos_category">Unknown</att>
+                <att name="long_name">Command</att>
+                <att name="missing_value" type="byte">127</att>
+            </addAttributes>
+        </dataVariable>
+    </dataset>
+</erddapDatasets>
