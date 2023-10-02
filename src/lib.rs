@@ -5,7 +5,7 @@ use chrono::TimeZone;
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashMap;
-
+use std::fmt;
 pub const DEFAULT_MMSI: &str = "00000";
 pub const DEFAULT_URL: &str = "https://erddap.example.com/erddap/tabledap/data_set";
 pub const DEFAULT_KEY: &str = "username_password";
@@ -48,6 +48,7 @@ pub struct AisMessage {
     /// The key-value map of the message
     pub msg: HashMap<String, serde_json::Value>,
 }
+
 #[derive(Deserialize, Debug)]
 pub struct AisCatcherMessage {
     #[allow(dead_code)]
@@ -67,10 +68,6 @@ pub struct AisCatcherMessage {
 
 #[derive(Debug, Default)]
 pub struct AisStationData {
-    /// The latitude of the station sending the AIS message
-    pub latitude: f64,
-    /// The longitude of the station sending the AIS message
-    pub longitude: f64,
     /// The Mobile Marine Service Identifier - 9 digits. ATON will start 99.
     pub mmsi: u64,
     /// The signal power reported by AIS-catcher - how strong the signal from the station is
@@ -91,8 +88,6 @@ impl From<&AisMessage> for AisStationData {
         let tz_offset = FixedOffset::west_opt(0).unwrap();
         let dt_ref: DateTime<FixedOffset> = tz_offset.from_local_datetime(&chrono_ref).unwrap();
         AisStationData {
-            latitude: f.msg["lat"].as_f64().unwrap(),
-            longitude: f.msg["lon"].as_f64().unwrap(),
             mmsi: f.msg["mmsi"].as_u64().unwrap(),
             signal_power: f.msg["signalpower"].as_f64().unwrap(),
             rxtime: dt_ref,
@@ -110,67 +105,201 @@ impl AisStationData {
             _ => &unknown,
         };
 
-        let qa = vec![
+        vec![
             // ERDDAP expects these keys as lower case
-            ("latitude", format!("{:.3}", self.latitude)),
-            ("longitude", format!("{:.3}", self.longitude)),
             ("time", self.rxtime.format("%Y-%m-%dT%H:%M:%SZ").to_string()),
             // ERDDAP expects these keys as upper cased
-            ("Signal_Power", format!("{:.3}", self.signal_power)),
-            ("Station_ID", station_id.to_string()),
-            ("MMSI", self.mmsi.to_string()),
-        ];
-        return qa;
+            ("station_name", station_id.to_string()),
+            ("mmsi", self.mmsi.to_string()),
+        ]
     }
 }
 
+/// Structure to hold the data from an IMO289 weather packet, Type 8 DAC 200 FID 31.
+/// AIS Catcher provides scaled data.
 #[derive(Debug, Default)]
-pub struct AisWeatherData {
+pub struct AisType8Dac200Fid31 {
+    /// Longitude, east is positive, west is negative. Minutes * 0.001. 181.000 = N/A
+    pub lon: f64,
+    /// Latitude, north is positive, south is negative. Minutes * 0.001. 91.000 = N/A
+    pub lat: f64,
     /// Wind speed in knots. 126 = wind >= 126 knots, 127 = N/A
-    pub wind_speed: u64,
+    pub wspeed: u64,
     /// Wind gust speed in knots. 126 = wind >= 126 knots, 127 = N/A
-    pub wind_gust_speed: u64,
+    pub wgust: u64,
     /// Wind bearing in degrees true, 0-359, 360 = N/A
-    pub wind_direction: u64,
+    pub wdir: u64,
     /// Wind gust bearing in degrees true, 0-359, 360 = N/A
-    pub wind_gust_direction: u64,
+    pub wgustdir: u64,
+    /// Air temperature, dry bulb, -60 to +60 in 0.1C, -1024 = N/A
+    pub airtemp: f64,
+    /// Dew point, -20 to +50 in 0.1C, 501 = N/A
+    pub dewpoint: f64,
+    /// Air pressure, 800-1200 hPa, 0 = pressure <= 799, 402 = pressure >= 1201, 511 = N/A
+    pub pressure: u64,
+    /// Air pressure tendency, 0 steady, 1 decreasing, 2 increasing, 3 = N/A
+    pub pressuretend: u64,
+    /// Visibilty greater than something. Actually BOOL FIXME
+    pub visgreater: f64,
+    /// Visibility in nautical miles, 127 = N/A
+    pub visibility: f64,
+    /// Water level, -10.0 to +30.0 in 0.01m, 4001 = N/A
+    pub waterlevel: f64,
+    /// Water level trend, 0 steady, 1 decreasing, 2 increasing, 3 = N/A
+    pub leveltrend: u64,
+    // --------------------
+    pub cspeed: f64,
+    pub cdir: u64,
+    pub cspeed2: f64,
+    pub cdir2: u64,
+    pub cdepth2: u64,
+    pub cspeed3: f64,
+    pub cdir3: u64,
+    pub cdepth3: u64,
     /// Wave height in metres. 0 - 25m in 0.1. 251 = height >= 25.1. 255 = N/A
-    pub wave_height: f64,
+    pub waveheight: f64,
     /// Wave period in seconds. 0 - 60. 63 = N/A
-    pub wave_period: u64,
-    // air_pressure: u64,
+    pub waveperiod: u64,
+    pub swellheight: f64,
+    pub swellperiod: u64,
+    pub seastate: u64,
+    pub watertemp: f64,
+    pub preciptype: u64,
+    pub salinity: f64,
+    // Ice, 0 No, 1 Yes, 2 Reserved, 3 = N/A
+    pub ice: u64,
 }
 
-/// Extracts fields from the AisMessage structure, and produces an AisWeatherData structure
-impl From<&AisMessage> for AisWeatherData {
+#[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
+pub struct AisMessageIdentifier {
+    /// Message type
+    pub r#type: u64,
+    /// Designated Area Code
+    pub dac: Option<u64>,
+    /// Functional ID
+    pub fid: Option<u64>,
+}
+
+impl From<&AisMessage> for AisMessageIdentifier {
     fn from(f: &AisMessage) -> Self {
-        AisWeatherData {
-            wind_speed: f.msg["wspeed"].as_u64().unwrap(),
-            wind_gust_speed: f.msg["wgust"].as_u64().unwrap(),
-            wind_direction: f.msg["wdir"].as_u64().unwrap(),
-            wind_gust_direction: f.msg["wgustdir"].as_u64().unwrap(),
-            wave_height: f.msg["waveheight"].as_f64().unwrap(),
-            wave_period: f.msg["waveperiod"].as_u64().unwrap(),
-            // air_pressure: f.msg["pressure"].as_u64().unwrap(),
+        let dac = match &f.msg.get("dac") {
+            Some(serde_json::Value::Number(n)) => Some(n.as_u64().unwrap()),
+            _ => None,
+        };
+        let fid = match &f.msg.get("fid") {
+            Some(serde_json::Value::Number(n)) => Some(n.as_u64().unwrap()),
+            _ => None,
+        };
+        AisMessageIdentifier {
+            r#type: f.msg["type"].as_u64().unwrap(),
+            dac,
+            fid,
         }
     }
 }
 
-/// Converts an AisWeatherData into a set of key/value pairs that line up with what the ERDDAP
+impl fmt::Display for AisMessageIdentifier {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let dac = match self.dac {
+            None => "None".to_string(),
+            Some(val) => val.to_string(),
+        };
+        let fid = match self.fid {
+            None => "None".to_string(),
+            Some(val) => val.to_string(),
+        };
+        write!(f, "AisMessageIdentifier({}/{}/{})", self.r#type, dac, fid)
+    }
+}
+
+fn load_f64(msg: &HashMap<String, serde_json::Value>, field: &str, default: f64) -> f64 {
+    match msg.get(field) {
+        Some(n) => n.as_f64().unwrap(),
+        _ => default,
+    }
+}
+fn load_u64(msg: &HashMap<String, serde_json::Value>, field: &str, default: u64) -> u64 {
+    match msg.get(field) {
+        Some(n) => n.as_u64().unwrap(),
+        _ => default,
+    }
+}
+/// Extracts fields from the AisMessage structure, and produces an AisType8Dac200Fid31 structure
+impl From<&AisMessage> for AisType8Dac200Fid31 {
+    fn from(f: &AisMessage) -> Self {
+        AisType8Dac200Fid31 {
+            airtemp: load_f64(&f.msg, "airtemp", -1024_f64),
+            cdepth2: load_u64(&f.msg, "cdepth2", 31),
+            cdepth3: load_u64(&f.msg, "cdepth3", 31),
+            cdir2: load_u64(&f.msg, "cdir2", 360),
+            cdir3: load_u64(&f.msg, "cdir3", 360),
+            cdir: load_u64(&f.msg, "cdir", 360),
+            cspeed2: load_f64(&f.msg, "cspeed2", 25.5),
+            cspeed3: load_f64(&f.msg, "cspeed3", 25.5),
+            cspeed: load_f64(&f.msg, "cspeed", 25.5),
+            dewpoint: load_f64(&f.msg, "dewpoint", 50.1),
+            ice: load_u64(&f.msg, "preciptype", 3),
+            lat: load_f64(&f.msg, "lat", 91.000),
+            leveltrend: load_u64(&f.msg, "leveltrend", 3),
+            lon: load_f64(&f.msg, "lon", 181.000),
+            preciptype: load_u64(&f.msg, "preciptype", 7),
+            pressure: load_u64(&f.msg, "pressure", 511),
+            pressuretend: load_u64(&f.msg, "pressuretend", 3),
+            salinity: load_f64(&f.msg, "salinity", 511_f64),
+            seastate: load_u64(&f.msg, "seastate", 13),
+            swellheight: load_f64(&f.msg, "swellheight", 25.5),
+            swellperiod: load_u64(&f.msg, "swellperiod", 360),
+            visgreater: load_f64(&f.msg, "visgreater", 1_f64),
+            visibility: load_f64(&f.msg, "visibility", 12.7),
+            waterlevel: load_f64(&f.msg, "waterlevel", 30.01),
+            watertemp: load_f64(&f.msg, "watertemp", 50.1),
+            waveheight: load_f64(&f.msg, "waveheight", 25.5),
+            waveperiod: load_u64(&f.msg, "waveperiod", 63),
+            wdir: load_u64(&f.msg, "wdir", 360),
+            wgust: load_u64(&f.msg, "wgust", 127),
+            wgustdir: load_u64(&f.msg, "wgustdir", 360),
+            wspeed: load_u64(&f.msg, "wspeed", 127),
+        }
+    }
+}
+
+/// Converts an AisType8Dac200Fid31 into a set of key/value pairs that line up with what the ERDDAP
 /// system is configured to store.
-impl AisWeatherData {
+impl AisType8Dac200Fid31 {
     pub fn as_query_arguments(&self) -> Vec<(&str, String)> {
-        let qa = vec![
-            // ERDDAP expects these keys as upper cased snake
-            ("Wind_Speed", self.wind_speed.to_string()),
-            ("Wind_Gust_Speed", self.wind_gust_speed.to_string()),
-            ("Wind_Direction", self.wind_direction.to_string()),
-            ("Wind_Gust_Direction", self.wind_gust_direction.to_string()),
-            ("Wave_Height", self.wave_height.to_string()),
-            ("Wave_Period", self.wave_period.to_string()),
-            // ("Air_Pressure", self.air_pressure.to_string()),
-        ];
-        return qa;
+        vec![
+            ("airtemp", self.airtemp.to_string()),
+            ("cdepth2", self.cdepth2.to_string()),
+            ("cdepth3", self.cdepth3.to_string()),
+            ("cdir", self.cdir.to_string()),
+            ("cdir2", self.cdir2.to_string()),
+            ("cdir3", self.cdir3.to_string()),
+            ("cspeed", self.cspeed.to_string()),
+            ("cspeed2", self.cspeed2.to_string()),
+            ("cspeed3", self.cspeed3.to_string()),
+            ("dewpoint", self.dewpoint.to_string()),
+            ("ice", self.ice.to_string()),
+            ("lat", format!("{:.3}", self.lat)),
+            ("leveltrend", self.leveltrend.to_string()),
+            ("lon", format!("{:.3}", self.lon)),
+            ("preciptype", self.preciptype.to_string()),
+            ("pressure", self.pressure.to_string()),
+            ("pressuretend", self.pressuretend.to_string()),
+            ("salinity", self.salinity.to_string()),
+            ("seastate", self.seastate.to_string()),
+            ("swellheight", self.swellheight.to_string()),
+            ("swellperiod", self.swellperiod.to_string()),
+            ("visgreater", self.visgreater.to_string()),
+            ("visibility", self.visibility.to_string()),
+            ("waterlevel", self.waterlevel.to_string()),
+            ("watertemp", self.watertemp.to_string()),
+            ("waveheight", self.waveheight.to_string()),
+            ("waveperiod", self.waveperiod.to_string()),
+            ("wdir", self.wdir.to_string()),
+            ("wgust", self.wgust.to_string()),
+            ("wgustdir", self.wgustdir.to_string()),
+            ("wspeed", self.wspeed.to_string()),
+        ]
     }
 }
 
@@ -181,17 +310,49 @@ pub struct AppConfig {
     pub erddap_url: String,
     /// Username_Password author key for the ERDDAP service
     pub erddap_key: String,
-    /// List of MMSIs to ignore and not process
-    pub ignore_mmsi: Vec<u64>,
-    /// Map MMSIs to string names
+    /// List of MMSIs (Mobile Marine Service Identifier) to ignore and not process
+    pub message_config: Vec<AcceptedMessage>,
+    /// Map MMSIs (Mobile Marine Service Identifier) to string names to provide a
+    /// human-friendly station name in the data posted to ERDDAP.
     pub mmsi_lookup: Vec<MMSILookup>,
 }
 
 /// A TOML table entry for a MMSI and the station name to use for that MMSI
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct MMSILookup {
+    /// The Marine Mobile Service Identifier from the AIS message
     pub mmsi: String,
-    pub station_id: String,
+    /// The name to give the MMSI.
+    pub station_name: String,
+}
+
+/// A TOML table entry for a packet to accept for decoding
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct AcceptedMessage {
+    /// The type number from the AIS specification, such as 8 for weather
+    pub r#type: u64,
+    /// Designated Area Code, only valid for binary messages (type 8 for instance)
+    pub dac: Option<u64>,
+    // Functional ID, only valid for binary messages (type 8 for instance)
+    pub fid: Option<u64>,
+    /// List of MMSIs to ignore, such as test ATONs.
+    pub ignore_mmsi: Vec<u64>,
+    /// List of field names to publish to ERDDAP. This enables the ERDDAP service to be
+    /// configured with a subset of the full IMO289 data, without having to recompile
+    /// the code.
+    pub publish_fields: Vec<String>,
+}
+
+/// Used to pass configuration data into the ArgsState struct for passing around in the
+/// program.
+#[derive(Debug, Clone)]
+pub struct PerMessageConfig {
+    /// List of MMSIs to ignore, such as test ATONs.
+    pub ignore_mmsi: Vec<u64>,
+    /// List of field names to publish to ERDDAP. This enables the ERDDAP service to be
+    /// configured with a subset of the full IMO289 data, without having to recompile
+    /// the code.
+    pub publish_fields: Vec<String>,
 }
 
 impl ::std::default::Default for AppConfig {
@@ -199,10 +360,25 @@ impl ::std::default::Default for AppConfig {
         Self {
             erddap_url: DEFAULT_URL.to_string(),
             erddap_key: DEFAULT_KEY.to_string(),
-            ignore_mmsi: vec![],
+            message_config: vec![AcceptedMessage {
+                r#type: 8,
+                dac: Some(200),
+                fid: Some(31),
+                ignore_mmsi: vec![],
+                publish_fields: vec![
+                    "lat".to_string(),
+                    "lon".to_string(),
+                    "wspeed".to_string(),
+                    "wgust".to_string(),
+                    "wdir".to_string(),
+                    "wgustdir".to_string(),
+                    "waveheight".to_string(),
+                    "waveperiod".to_string(),
+                ],
+            }],
             mmsi_lookup: vec![MMSILookup {
                 mmsi: DEFAULT_MMSI.to_string(),
-                station_id: "MMSI Name".to_string(),
+                station_name: "MMSI Name".to_string(),
             }],
         }
     }
@@ -214,6 +390,7 @@ pub struct ArgsState {
     pub url: String,
     pub author_key: String,
     pub dump_all_packets: bool,
+    pub dump_accepted_messages: bool,
     pub mmsi_lookup: HashMap<String, String>,
-    pub ignore_mmsi: Vec<u64>,
+    pub message_config_lookup: HashMap<AisMessageIdentifier, PerMessageConfig>,
 }
