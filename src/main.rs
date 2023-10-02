@@ -1,7 +1,7 @@
 use axum::{extract::State, http::StatusCode, response::IntoResponse, routing::post, Json, Router};
 use clap::Parser;
 use erddap_feeder::{AisCatcherMessage, AisMessageIdentifier, AisStationData, AisType8Dac200Fid31};
-use erddap_feeder::{AppConfig, ArgsState, PerMessageConfig};
+use erddap_feeder::{AppConfig, ArgsState, ErddapResponse, PerMessageConfig};
 use erddap_feeder::{DEFAULT_KEY, DEFAULT_MMSI, DEFAULT_URL};
 use indoc::printdoc;
 use serde_json::json;
@@ -252,9 +252,9 @@ async fn process_aiscatcher_submission(
                 tracing::debug!("{:?}", msg);
             }
             let asd = AisStationData::from(&msg);
-            tracing::info!("{:?}", asd);
+            tracing::debug!("{:?}", asd);
             let awd = AisType8Dac200Fid31::from(&msg);
-            tracing::info!("{:?}", awd);
+            tracing::debug!("{:?}", awd);
             if args.message_config_lookup[&ami]
                 .ignore_mmsi
                 .contains(&asd.mmsi)
@@ -274,7 +274,7 @@ async fn process_aiscatcher_submission(
         "Received {} messages, submitted {}, skipped {}, ignored {}",
         total_count, processed_count, skipped_count, ignored_count
     );
-    tracing::info!("{}", logmsg);
+    tracing::debug!("{}", logmsg);
     (StatusCode::OK, Json(json!({"message": logmsg })))
 }
 
@@ -302,7 +302,7 @@ async fn send_to_erddap(
                 .rename_fields
                 .get(old_name)
                 .map(|s| s.as_str())
-                .unwrap_or(&old_name);
+                .unwrap_or(old_name);
             (new_name, value)
         })
         .collect();
@@ -329,7 +329,10 @@ async fn send_to_erddap(
         let result = response.unwrap();
         match result.status() {
             StatusCode::OK => {
-                tracing::info!("Successful submission");
+                tracing::info!(
+                    "ERDDAP said {}",
+                    result.json::<ErddapResponse>().await.unwrap().status
+                );
             }
             StatusCode::NOT_FOUND => {
                 tracing::error!(

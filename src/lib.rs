@@ -164,6 +164,7 @@ pub struct AisType8Dac200Fid31 {
     pub swellperiod: u64,
     pub seastate: u64,
     pub watertemp: f64,
+    /// Precipitation type, 1=Rain,2=Thunderstorm,3=Freezing Rain,4=Mixed/ice,5=Snow,7=N/A
     pub preciptype: u64,
     pub salinity: f64,
     // Ice, 0 No, 1 Yes, 2 Reserved, 3 = N/A
@@ -212,23 +213,38 @@ impl fmt::Display for AisMessageIdentifier {
     }
 }
 
+/// Load from an optional Value/Number from the named field, defaulting to the supplied
+/// value if the data was not present in the source JSON.
 fn load_f64(msg: &HashMap<String, serde_json::Value>, field: &str, default: f64) -> f64 {
     match msg.get(field) {
         Some(n) => n.as_f64().unwrap(),
         _ => default,
     }
 }
+
+/// Load from an optional Value/Number from the named field, defaulting to the supplied
+/// value if the data was not present in the source JSON.
 fn load_u64(msg: &HashMap<String, serde_json::Value>, field: &str, default: u64) -> u64 {
-    println!("Processing {}", field);
     match msg.get(field) {
-        Some(n) => n.as_u64().unwrap(),
-        _ => default,
+        // Be gracious in what's accepted. Perhaps the upstream sends a f64 value when the
+        // spec details the field as u64. Trust that the significand is correct, and coerce
+        // the floating poing value into an integer.
+        // https://github.com/jvde-github/AIS-catcher/issues/179
+        Some(n) => n
+            .as_u64()
+            .or_else(|| n.as_f64().map(|f| f as u64))
+            .unwrap_or(default),
+        None => default,
     }
 }
+
 /// Extracts fields from the AisMessage structure, and produces an AisType8Dac200Fid31 structure
 impl From<&AisMessage> for AisType8Dac200Fid31 {
     fn from(f: &AisMessage) -> Self {
-        println!("{:?}", f);
+        // The default value is the *scaled* value from AIS Catcher, based on the details in
+        // https://gpsd.gitlab.io/gpsd/AIVDM.html#_meteorological_and_hydrological_data_imo289
+        // So, while the datastructure may document watertemp as 501 = N/A, the scaled value
+        // is 50.1 (for example).
         AisType8Dac200Fid31 {
             airtemp: load_f64(&f.msg, "airtemp", -1024_f64),
             cdepth2: load_u64(&f.msg, "cdepth2", 31),
@@ -386,6 +402,17 @@ impl ::std::default::Default for AppConfig {
             }],
         }
     }
+}
+
+// ERDDAP responds with camelCase, and for deserialization to work, this struct has to match.
+#[allow(non_snake_case)]
+#[derive(Debug, Deserialize)]
+/// Structure for the ERDDAP submission response
+pub struct ErddapResponse {
+    pub status: String,
+    pub nRowsReceived: u16,
+    pub stringTimestamp: String,
+    pub numericTimestamp: f64,
 }
 
 /// CLI state data for Axum to pass around; everything from args has to be in here
