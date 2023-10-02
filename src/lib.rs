@@ -219,6 +219,7 @@ fn load_f64(msg: &HashMap<String, serde_json::Value>, field: &str, default: f64)
     }
 }
 fn load_u64(msg: &HashMap<String, serde_json::Value>, field: &str, default: u64) -> u64 {
+    println!("Processing {}", field);
     match msg.get(field) {
         Some(n) => n.as_u64().unwrap(),
         _ => default,
@@ -227,6 +228,7 @@ fn load_u64(msg: &HashMap<String, serde_json::Value>, field: &str, default: u64)
 /// Extracts fields from the AisMessage structure, and produces an AisType8Dac200Fid31 structure
 impl From<&AisMessage> for AisType8Dac200Fid31 {
     fn from(f: &AisMessage) -> Self {
+        println!("{:?}", f);
         AisType8Dac200Fid31 {
             airtemp: load_f64(&f.msg, "airtemp", -1024_f64),
             cdepth2: load_u64(&f.msg, "cdepth2", 31),
@@ -310,7 +312,13 @@ pub struct AppConfig {
     pub erddap_url: String,
     /// Username_Password author key for the ERDDAP service
     pub erddap_key: String,
-    /// List of MMSIs (Mobile Marine Service Identifier) to ignore and not process
+    /// List of field names to publish to ERDDAP. This enables the ERDDAP service to be
+    /// configured with a subset of the full IMO289 data, without having to recompile
+    /// the code.
+    pub publish_fields: Vec<String>,
+    /// A remapping of field names to support requirements of the remote system
+    pub rename_fields: Vec<(String, String)>,
+    /// Defines a mapping of particular messages to ignored MMSIs
     pub message_config: Vec<AcceptedMessage>,
     /// Map MMSIs (Mobile Marine Service Identifier) to string names to provide a
     /// human-friendly station name in the data posted to ERDDAP.
@@ -337,10 +345,6 @@ pub struct AcceptedMessage {
     pub fid: Option<u64>,
     /// List of MMSIs to ignore, such as test ATONs.
     pub ignore_mmsi: Vec<u64>,
-    /// List of field names to publish to ERDDAP. This enables the ERDDAP service to be
-    /// configured with a subset of the full IMO289 data, without having to recompile
-    /// the code.
-    pub publish_fields: Vec<String>,
 }
 
 /// Used to pass configuration data into the ArgsState struct for passing around in the
@@ -349,10 +353,6 @@ pub struct AcceptedMessage {
 pub struct PerMessageConfig {
     /// List of MMSIs to ignore, such as test ATONs.
     pub ignore_mmsi: Vec<u64>,
-    /// List of field names to publish to ERDDAP. This enables the ERDDAP service to be
-    /// configured with a subset of the full IMO289 data, without having to recompile
-    /// the code.
-    pub publish_fields: Vec<String>,
 }
 
 impl ::std::default::Default for AppConfig {
@@ -360,21 +360,25 @@ impl ::std::default::Default for AppConfig {
         Self {
             erddap_url: DEFAULT_URL.to_string(),
             erddap_key: DEFAULT_KEY.to_string(),
+            publish_fields: vec![
+                "lat".to_string(),
+                "lon".to_string(),
+                "wspeed".to_string(),
+                "wgust".to_string(),
+                "wdir".to_string(),
+                "wgustdir".to_string(),
+                "waveheight".to_string(),
+                "waveperiod".to_string(),
+            ],
+            rename_fields: vec![
+                ("lat".to_string(), "latitude".to_string()),
+                ("lon".to_string(), "longitude".to_string()),
+            ],
             message_config: vec![AcceptedMessage {
                 r#type: 8,
                 dac: Some(200),
                 fid: Some(31),
                 ignore_mmsi: vec![],
-                publish_fields: vec![
-                    "lat".to_string(),
-                    "lon".to_string(),
-                    "wspeed".to_string(),
-                    "wgust".to_string(),
-                    "wdir".to_string(),
-                    "wgustdir".to_string(),
-                    "waveheight".to_string(),
-                    "waveperiod".to_string(),
-                ],
             }],
             mmsi_lookup: vec![MMSILookup {
                 mmsi: DEFAULT_MMSI.to_string(),
@@ -389,6 +393,8 @@ impl ::std::default::Default for AppConfig {
 pub struct ArgsState {
     pub url: String,
     pub author_key: String,
+    pub publish_fields: Vec<String>,
+    pub rename_fields: HashMap<String, String>,
     pub dump_all_packets: bool,
     pub dump_accepted_messages: bool,
     pub mmsi_lookup: HashMap<String, String>,

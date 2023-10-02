@@ -72,12 +72,17 @@ async fn main() {
     // ignored MMSIs for that message type.
     let message_config = build_message_config_lookup(&app_config);
 
+    // Convert the config.rename_fields vector of string tuples to a looup map.
+    let rename_fields_map = build_field_rename_map(&app_config);
+
     // Axum/tokio can pass a state object to every handler that's invoked. Here, it's
     // used to pass the configuration of the program to every handler (and it must come
     // after the route).
     let args_state = ArgsState {
         url: app_config.erddap_url,
         author_key: app_config.erddap_key,
+        publish_fields: app_config.publish_fields,
+        rename_fields: rename_fields_map,
         dump_all_packets: args.dump_all_packets,
         dump_accepted_messages: args.dump_accepted_messages,
         mmsi_lookup: mmsi_to_station_id_map,
@@ -102,11 +107,26 @@ fn build_mmsi_to_station_id_map(app_config: &AppConfig) -> HashMap<String, Strin
     let mut mmsi_to_station_id_map = HashMap::new();
 
     for entry in &app_config.mmsi_lookup {
-        tracing::info!("Mapped MMSI '{}' to '{}'", entry.mmsi, entry.station_name);
+        tracing::info!(
+            "MMSI lookups - mapped MMSI '{}' to '{}'",
+            entry.mmsi,
+            entry.station_name
+        );
         mmsi_to_station_id_map.insert(entry.mmsi.clone(), entry.station_name.clone());
     }
 
     mmsi_to_station_id_map
+}
+
+fn build_field_rename_map(app_config: &AppConfig) -> HashMap<String, String> {
+    let mut renames: HashMap<String, String> = HashMap::new();
+
+    for (source, target) in &app_config.rename_fields {
+        tracing::info!("Field renames - mapped source '{}' to '{}'", source, target);
+        renames.insert(source.clone(), target.clone());
+    }
+
+    renames
 }
 
 /// Convert the TOMLified table of accepted packets into something that can be matched
@@ -122,13 +142,8 @@ fn build_message_config_lookup(
         };
         let pmc = PerMessageConfig {
             ignore_mmsi: entry.ignore_mmsi.clone(),
-            publish_fields: entry.publish_fields.clone(),
         };
-        tracing::info!(
-            "Mapped {} to {:?} (ignore list) in message processing configuration",
-            ami,
-            entry.ignore_mmsi
-        );
+        tracing::info!("Ignore list - mapped {} to {:?}", ami, entry.ignore_mmsi);
         lookup.insert(ami, pmc);
     }
     lookup
@@ -247,7 +262,7 @@ async fn process_aiscatcher_submission(
                 tracing::debug!("Ignored message from {}", asd.mmsi);
                 ignored_count += 1;
             } else {
-                send_to_erddap(asd, awd, ami, axum::extract::State(args.clone())).await;
+                send_to_erddap(asd, awd, axum::extract::State(args.clone())).await;
             }
             processed_count += 1;
         } else {
@@ -266,11 +281,10 @@ async fn process_aiscatcher_submission(
 async fn send_to_erddap(
     station: AisStationData,
     weather: AisType8Dac200Fid31,
-    ami: AisMessageIdentifier,
     args: State<ArgsState>,
 ) {
     // FIXME From here to right before let client should be a function that returns the
-    // query vector
+    // query vector after processing it to remove fields, and rename fields.
 
     // Get the component vectors of kwargs
     let asd_query = station.as_query_arguments(&args.mmsi_lookup);
@@ -278,17 +292,25 @@ async fn send_to_erddap(
     let author = vec![("author", args.author_key.to_string())];
     // Apply the filters specified in the TOML config. If the vector is empty, nothing is removed,
     // to avoid having to list ALL the fields.
-    weather_query.retain(|&(key, _)| {
-        args.message_config_lookup[&ami]
-            .publish_fields
-            .iter()
-            .any(|s| s == key)
-    });
+    weather_query.retain(|&(key, _)| args.publish_fields.iter().any(|s| s == key));
+
+    // Rename the keys for the HTTP request based on the configuration in the TOML file
+    let result: Vec<(&str, String)> = weather_query
+        .into_iter()
+        .map(|(old_name, value)| {
+            let new_name = args
+                .rename_fields
+                .get(old_name)
+                .map(|s| s.as_str())
+                .unwrap_or(&old_name);
+            (new_name, value)
+        })
+        .collect();
 
     // Build the arg string
     let mut query_args = vec![];
     query_args.extend(asd_query);
-    query_args.extend(weather_query);
+    query_args.extend(result);
     query_args.extend(author);
 
     // Off to ERDDAP we go
@@ -296,7 +318,6 @@ async fn send_to_erddap(
     let body = client
         .get(format!("{}.insert", args.url))
         .query(&query_args);
-    tracing::info!("{:?}", body);
     let response = body.send().await;
 
     // Errors can happen
