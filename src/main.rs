@@ -1,5 +1,5 @@
 use axum::{extract::State, http::StatusCode, response::IntoResponse, routing::post, Json, Router};
-use clap::Parser;
+use clap::{Args, Parser, Subcommand};
 use erddap_feeder::{AisCatcherMessage, AisMessageIdentifier, AisStationData, AisType8Dac200Fid31};
 use erddap_feeder::{AppConfig, ArgsState, ErddapResponse, PerMessageConfig};
 use erddap_feeder::{DEFAULT_KEY, DEFAULT_MMSI, DEFAULT_URL};
@@ -19,19 +19,28 @@ enum Exits {
     DefaultErddapKey = 7,
 }
 
-#[derive(Parser, Debug)]
-#[command(author = "Duncan Hill")]
-#[command(version = "0.1")]
 /// Processes JSON AIS weather data emitted from AIS-catcher in HTTP mode, then
 /// sends the processed data as a HTTP GET request to an ERDDAP server. The
 /// ERDDAP server must be operating in a TLS-secured manner for the GET to be
 /// accepted as a data write.
-///
-/// By default, this tool listens on the wildcard IPv4 address - you can control
-/// that with --bind-address.
-///
-/// To see all packets in their raw form, use --dump-all-packets
-struct Args {
+#[derive(Parser)]
+#[command(author = "Duncan Hill")]
+#[command(version = "0.2")]
+#[command(propagate_version = true)]
+struct Cli {
+    #[command(subcommand)]
+    command: Commands,
+}
+
+#[derive(Subcommand)]
+enum Commands {
+    Initialize(Initialize),
+    Manual,
+    Run(Run),
+}
+
+#[derive(Args)]
+struct Run {
     /// IP address and socket to listen on.
     #[arg(long, default_value_t = SocketAddr::from(([0,0,0,0], 22022)))]
     bind_address: SocketAddr,
@@ -47,21 +56,42 @@ struct Args {
     /// Dump every accepted message's raw structure
     #[arg(long, default_value_t = false)]
     dump_accepted_messages: bool,
-
-    /// A user manual of sorts
-    #[arg(short, long, default_value_t = false)]
-    user_manual: bool,
 }
+
+#[derive(Args)]
+struct Initialize {
+    /// Alternate configuration file to load
+    #[arg(short, long)]
+    config_file: Option<String>,
+}
+
 
 #[tokio::main]
 async fn main() {
-    let args = Args::parse();
-    if args.user_manual {
-        user_manual();
-        std::process::exit(0);
+    let args = Cli::parse();
+    match &args.command {
+        Commands::Initialize(init) => {
+            exec_init(init).await;
+        }
+        Commands::Manual => {
+            exec_user_manual();
+        }
+        Commands::Run(run) => {
+            exec_run(run).await;
+        }
     }
+}
+
+/// Initialize the configuration file that the feeder will use.
+async fn exec_init(args: &Initialize) {
+    let cfg_file_name = get_config_path(&args.config_file);
+    create_config(cfg_file_name);
+}
+
+async fn exec_run(args: &Run) {
     tracing_subscriber::fmt::init();
-    let app_config = load_config(args.config_file);
+    // load config
+    let app_config = load_config(&args.config_file);
     tracing::info!("ERDDAP URL: {}", app_config.erddap_url);
     // Convert the config.mmsi_lookup vector of objects to a map of name to station id
     // This enables the station data as_query_arguments function to map the MMSI in the
@@ -149,9 +179,8 @@ fn build_message_config_lookup(
     lookup
 }
 
-/// Load a configuration file from the OS config dir location. If no config is present,
-/// write a default configuration
-fn load_config(config_file: Option<String>) -> AppConfig {
+/// Get the on-disk filename for a config file
+fn get_config_path(config_file: &Option<String>) -> String {
     let filename = match config_file {
         None => "default-config",
         Some(ref v) => v.as_str(),
@@ -164,7 +193,25 @@ fn load_config(config_file: Option<String>) -> AppConfig {
             std::process::exit(Exits::CouldNotGetConfigFilePath as i32);
         }
     };
-    let cfg_file_name = cfg_file.as_os_str().to_str().unwrap();
+    cfg_file.into_os_string().into_string().unwrap()
+}
+
+/// Load a configuration file from the OS config dir location. If no config is present,
+/// write a default configuration
+fn load_config(config_file: &Option<String>) -> AppConfig {
+    let filename = match config_file {
+        None => "default-config",
+        Some(ref v) => v.as_str(),
+    };
+    // Knowing the file name is useful for the rest of the error messages.
+    let cfg_file = match confy::get_configuration_file_path("erddap-feeder", filename) {
+        Ok(buf) => buf,
+        Err(error) => {
+            tracing::error!("Could not get configuration file name: {}", error);
+            std::process::exit(Exits::CouldNotGetConfigFilePath as i32);
+        }
+    };
+    let cfg_file_name = get_config_path(&config_file);
 
     // Attempt loading the configuration file; it can not exist, and confy will not
     // consider that to be an error.
@@ -186,7 +233,6 @@ fn load_config(config_file: Option<String>) -> AppConfig {
             "The configuration file {} does not have any MMSI lookups defined.",
             cfg_file_name
         );
-        create_config(cfg_file_name);
         std::process::exit(Exits::EmptyMmsiLookup as i32);
     } else {
         // The vector of mmsi lookups was not empty, but is the default present? If so,
@@ -220,7 +266,7 @@ fn load_config(config_file: Option<String>) -> AppConfig {
 }
 
 /// Write a default configuration file out, and ask the user to edit it.
-fn create_config(cfg_file_name: &str) {
+fn create_config(cfg_file_name: String) {
     let basic_config = AppConfig::default();
     match confy::store("erddap-feeder", None, basic_config) {
         Ok(_) => tracing::info!("Wrote initial configuration file. Please edit it and adjust the [[mmsi_lookup]] entries."),
@@ -348,7 +394,7 @@ async fn send_to_erddap(
     }
 }
 
-fn user_manual() {
+fn exec_user_manual() {
     printdoc! {
         "User Manual
         ############
@@ -389,4 +435,5 @@ fn user_manual() {
         You cannot filter the required `time` field, or the `mmsi` field.
 "
     }
+    std::process::exit(0);
 }

@@ -15,9 +15,9 @@ For this software to make any sense, you must have access to an ERDDAP service t
 
 This ERDDAP service must be available over HTTPS, otherwise it won't accept the message.
 
-To initialize the new tabledap, use resources/init.jsonl and resources/datasets.xml. The XML file defines a dataset that should be updated based on the (https://coastwatch.pfeg.noaa.gov/erddap/download/setupDatasetsXml.html)[ERDDAP datasets documentation].
+To initialize the new tabledap, use resources/init.jsonl and resources/datasets.xml. The XML file defines a dataset that should be updated based on the [ERDDAP datasets documentation](https://coastwatch.pfeg.noaa.gov/erddap/download/setupDatasetsXml.html).
 
-Note that the **ioos_category** field in the datasets.xml file is not what you'll find at https://mmisw.org/ont/ioos/category. Instead, it comes from the hard-coded (https://github.com/ERDDAP/erddap/blob/main/WEB-INF/classes/gov/noaa/pfel/erddap/variable/EDV.java)[IOOS_CATEGORIES] in the ERDDAP source code.
+Note that the **ioos_category** field in the datasets.xml file is not what you'll find at https://mmisw.org/ont/ioos/category. Instead, it comes from the hard-coded [IOOS_CATEGORIES](https://github.com/ERDDAP/erddap/blob/main/WEB-INF/classes/gov/noaa/pfel/erddap/variable/EDV.java) in the ERDDAP source code.
 
 # Running ERDDAP Feeder
 
