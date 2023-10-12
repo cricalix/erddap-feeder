@@ -1,6 +1,6 @@
 [package]
 name = "erddap-feeder"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 axum = { version = "0.6.20", features = ["headers"] }
 chrono = "0.4.31"
-clap = { version = "4.4.4", features = ["derive", "env"] }
+clap = { version = "4.4.4", features = ["derive", "env", "cargo"] }
 confy = "0.5.1"
 indoc = "2.0.4"
 log = "0.4.20"

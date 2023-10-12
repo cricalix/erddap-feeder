@@ -24,9 +24,9 @@ enum Exits {
 /// ERDDAP server must be operating in a TLS-secured manner for the GET to be
 /// accepted as a data write.
 #[derive(Parser)]
-#[command(author = "Duncan Hill")]
-#[command(version = "0.2")]
-#[command(propagate_version = true)]
+#[command(author = clap::crate_authors!())]
+#[command(version = clap::crate_version!())]
+#[command(propagate_version = false)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -35,10 +35,11 @@ struct Cli {
 #[derive(Subcommand)]
 enum Commands {
     Initialize(Initialize),
-    Manual,
+    Manual(Manual),
     Run(Run),
 }
 
+/// Run the HTTP listener to accept JSON packets and send them to ERDDAP
 #[derive(Args)]
 struct Run {
     /// IP address and socket to listen on.
@@ -46,8 +47,8 @@ struct Run {
     bind_address: SocketAddr,
 
     /// Alternate configuration file to load
-    #[arg(short, long)]
-    config_file: Option<String>,
+    #[arg(short, long, default_value_t = String::from("default-config"))]
+    config_file: String,
 
     /// Dump every received JSON packet (a packet can contain several messages)
     #[arg(long, default_value_t = false)]
@@ -58,12 +59,17 @@ struct Run {
     dump_accepted_messages: bool,
 }
 
+/// Initialize a configuration file; overwrites any existing configuration of the same name
 #[derive(Args)]
 struct Initialize {
     /// Alternate configuration file to load
-    #[arg(short, long)]
-    config_file: Option<String>,
+    #[arg(short, long, default_value_t = String::from("default-config"))]
+    config_file: String,
 }
+
+/// Show a user manual of sorts
+#[derive(Args)]
+struct Manual {}
 
 #[tokio::main]
 async fn main() {
@@ -73,7 +79,7 @@ async fn main() {
         Commands::Initialize(init) => {
             exec_init(init).await;
         }
-        Commands::Manual => {
+        Commands::Manual(_) => {
             exec_user_manual();
         }
         Commands::Run(run) => {
@@ -178,13 +184,9 @@ fn build_message_config_lookup(
 }
 
 /// Get the on-disk filename for a config file
-fn get_config_path(config_file: &Option<String>) -> String {
-    let filename = match config_file {
-        None => "default-config",
-        Some(ref v) => v.as_str(),
-    };
+fn get_config_path(config_file: &String) -> String {
     // Knowing the file name is useful for the rest of the error messages.
-    let cfg_file = match confy::get_configuration_file_path("erddap-feeder", filename) {
+    let cfg_file = match confy::get_configuration_file_path("erddap-feeder", config_file.as_str()) {
         Ok(buf) => buf,
         Err(error) => {
             tracing::error!("Could not get configuration file name: {}", error);
@@ -196,16 +198,12 @@ fn get_config_path(config_file: &Option<String>) -> String {
 
 /// Load a configuration file from the OS config dir location. If no config is present,
 /// write a default configuration
-fn load_config(config_file: &Option<String>) -> AppConfig {
-    let filename = match config_file {
-        None => "default-config",
-        Some(ref v) => v.as_str(),
-    };
+fn load_config(config_file: &String) -> AppConfig {
     let cfg_file_name = get_config_path(&config_file);
 
     // Attempt loading the configuration file; it can not exist, and confy will not
     // consider that to be an error.
-    let cfg: AppConfig = match confy::load(APP_NAME, filename) {
+    let cfg: AppConfig = match confy::load(APP_NAME, config_file.as_str()) {
         Ok(config) => config,
         Err(error) => {
             tracing::error!(
@@ -256,17 +254,13 @@ fn load_config(config_file: &Option<String>) -> AppConfig {
 }
 
 /// Write a default configuration file out, and ask the user to edit it.
-fn create_config(config_file: &Option<String>) {
+fn create_config(config_file: &String) {
     let cfg_file_name = get_config_path(&config_file);
-    let filename = match config_file {
-        None => "default-config",
-        Some(ref v) => v.as_str(),
-    };
     let basic_config = AppConfig::default();
-    match confy::store("erddap-feeder", filename, basic_config) {
+    match confy::store("erddap-feeder", config_file.as_str(), basic_config) {
         Ok(_) => tracing::info!("Wrote initial configuration file {}. Please edit it and adjust the [[mmsi_lookup]] entries.", cfg_file_name),
         Err(error) => {
-            tracing::error!("Could not create configuration file {}: {}", filename, error);
+            tracing::error!("Could not create configuration file {}: {}", cfg_file_name, error);
             std::process::exit(Exits::CouldNotCreateConfigFile as i32);
         }
     };
