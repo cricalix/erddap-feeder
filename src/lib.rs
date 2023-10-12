@@ -334,7 +334,7 @@ pub struct AppConfig {
     pub publish_fields: Vec<String>,
     /// A remapping of field names to support requirements of the remote system
     pub rename_fields: Vec<(String, String)>,
-    /// Defines a mapping of particular messages to ignored MMSIs
+    /// Defines a configuration of acceptable message types, and MMSIs to ignore
     pub message_config: Vec<AcceptedMessage>,
     /// Map MMSIs (Mobile Marine Service Identifier) to string names to provide a
     /// human-friendly station name in the data posted to ERDDAP.

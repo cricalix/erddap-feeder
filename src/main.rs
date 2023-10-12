@@ -69,6 +69,7 @@ struct Initialize {
 #[tokio::main]
 async fn main() {
     let args = Cli::parse();
+    tracing_subscriber::fmt::init();
     match &args.command {
         Commands::Initialize(init) => {
             exec_init(init).await;
@@ -84,12 +85,10 @@ async fn main() {
 
 /// Initialize the configuration file that the feeder will use.
 async fn exec_init(args: &Initialize) {
-    let cfg_file_name = get_config_path(&args.config_file);
-    create_config(cfg_file_name);
+    create_config(&args.config_file);
 }
 
 async fn exec_run(args: &Run) {
-    tracing_subscriber::fmt::init();
     // load config
     let app_config = load_config(&args.config_file);
     tracing::info!("ERDDAP URL: {}", app_config.erddap_url);
@@ -203,14 +202,6 @@ fn load_config(config_file: &Option<String>) -> AppConfig {
         None => "default-config",
         Some(ref v) => v.as_str(),
     };
-    // Knowing the file name is useful for the rest of the error messages.
-    let cfg_file = match confy::get_configuration_file_path("erddap-feeder", filename) {
-        Ok(buf) => buf,
-        Err(error) => {
-            tracing::error!("Could not get configuration file name: {}", error);
-            std::process::exit(Exits::CouldNotGetConfigFilePath as i32);
-        }
-    };
     let cfg_file_name = get_config_path(&config_file);
 
     // Attempt loading the configuration file; it can not exist, and confy will not
@@ -241,7 +232,7 @@ fn load_config(config_file: &Option<String>) -> AppConfig {
             if lookup.mmsi == DEFAULT_MMSI {
                 tracing::error!(
                     "The configuration file {} has the default MMSI lookup. Please edit the file.",
-                    cfg_file.as_os_str().to_str().unwrap()
+                    cfg_file_name
                 );
                 std::process::exit(Exits::DefaultMmsiLookup as i32);
             }
@@ -249,14 +240,14 @@ fn load_config(config_file: &Option<String>) -> AppConfig {
         if cfg.erddap_url == DEFAULT_URL {
             tracing::error!(
                 "The configuration file {} has the default ERDDAP URL. Please edit the file.",
-                cfg_file.as_os_str().to_str().unwrap()
+                cfg_file_name
             );
             std::process::exit(Exits::DefaultErddapUrl as i32);
         }
         if cfg.erddap_key == DEFAULT_KEY {
             tracing::error!(
                 "The configuration file {} has the default ERDDAP key. Please edit the file.",
-                cfg_file.as_os_str().to_str().unwrap()
+                cfg_file_name
             );
             std::process::exit(Exits::DefaultErddapKey as i32);
         }
@@ -266,12 +257,17 @@ fn load_config(config_file: &Option<String>) -> AppConfig {
 }
 
 /// Write a default configuration file out, and ask the user to edit it.
-fn create_config(cfg_file_name: String) {
+fn create_config(config_file: &Option<String>) {
+    let cfg_file_name = get_config_path(&config_file);
+    let filename = match config_file {
+        None => "default-config",
+        Some(ref v) => v.as_str(),
+    };
     let basic_config = AppConfig::default();
-    match confy::store("erddap-feeder", None, basic_config) {
-        Ok(_) => tracing::info!("Wrote initial configuration file. Please edit it and adjust the [[mmsi_lookup]] entries."),
+    match confy::store("erddap-feeder", filename, basic_config) {
+        Ok(_) => tracing::info!("Wrote initial configuration file {}. Please edit it and adjust the [[mmsi_lookup]] entries.", cfg_file_name),
         Err(error) => {
-            tracing::error!("Could not create configuration file {}: {}", cfg_file_name, error);
+            tracing::error!("Could not create configuration file {}: {}", filename, error);
             std::process::exit(Exits::CouldNotCreateConfigFile as i32);
         }
     };
