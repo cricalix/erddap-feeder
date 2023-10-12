@@ -98,20 +98,28 @@ impl From<&AisMessage> for AisStationData {
 /// Converts an AisStationData into a set of key/value pairs that line up with what the ERDDAP
 /// system is configured to store.
 impl AisStationData {
-    pub fn as_query_arguments(&self, mmsi_lookup: &HashMap<String, String>) -> Vec<(&str, String)> {
+    pub fn as_query_arguments(
+        &self,
+        mmsi_lookup: &HashMap<String, String>,
+    ) -> Vec<(String, String)> {
         let unknown = "UNKNOWN".to_string();
         let station_id = match mmsi_lookup.get(&self.mmsi.to_string()) {
             Some(val) => val,
             _ => &unknown,
         };
 
-        vec![
+        let station = vec![
             // ERDDAP expects these keys as lower case
             ("time", self.rxtime.format("%Y-%m-%dT%H:%M:%SZ").to_string()),
             // ERDDAP expects these keys as upper cased
             ("station_name", station_id.to_string()),
             ("mmsi", self.mmsi.to_string()),
-        ]
+        ];
+        let result_vector: Vec<(String, String)> = station
+            .into_iter()
+            .map(|(first, second)| (first.to_string(), second.to_string()))
+            .collect();
+        result_vector
     }
 }
 
@@ -284,8 +292,8 @@ impl From<&AisMessage> for AisType8Dac200Fid31 {
 /// Converts an AisType8Dac200Fid31 into a set of key/value pairs that line up with what the ERDDAP
 /// system is configured to store.
 impl AisType8Dac200Fid31 {
-    pub fn as_query_arguments(&self) -> Vec<(&str, String)> {
-        vec![
+    pub fn as_query_arguments(&self) -> Vec<(String, String)> {
+        let weather = vec![
             ("airtemp", self.airtemp.to_string()),
             ("cdepth2", self.cdepth2.to_string()),
             ("cdepth3", self.cdepth3.to_string()),
@@ -317,7 +325,12 @@ impl AisType8Dac200Fid31 {
             ("wgust", self.wgust.to_string()),
             ("wgustdir", self.wgustdir.to_string()),
             ("wspeed", self.wspeed.to_string()),
-        ]
+        ];
+        let result_vector: Vec<(String, String)> = weather
+            .into_iter()
+            .map(|(first, second)| (first.to_string(), second.to_string()))
+            .collect();
+        result_vector
     }
 }
 

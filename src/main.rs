@@ -65,7 +65,6 @@ struct Initialize {
     config_file: Option<String>,
 }
 
-
 #[tokio::main]
 async fn main() {
     let args = Cli::parse();
@@ -320,40 +319,64 @@ async fn process_aiscatcher_submission(
     (StatusCode::OK, Json(json!({"message": logmsg })))
 }
 
+fn build_and_filter_weather_data(
+    weather: AisType8Dac200Fid31,
+    args: &State<ArgsState>,
+) -> Vec<(String, String)> {
+    let mut weather_query = weather.as_query_arguments();
+    // Apply the filters specified in the TOML config. If the vector is empty, nothing is removed,
+    // to avoid having to list ALL the fields.
+    weather_query.retain(|(key, _)| args.publish_fields.iter().any(|s| s == key));
+    weather_query
+}
+
+fn rename_weather_keys(
+    weather_query: Vec<(String, String)>,
+    args: &State<ArgsState>,
+) -> Vec<(String, String)> {
+    // Rename the keys for the HTTP request based on the configuration in the TOML file
+    let result: Vec<(String, String)> = weather_query
+        .into_iter()
+        .map(|(old_name, value)| {
+            let new_name = args
+                .rename_fields
+                .get(&old_name)
+                .map(|s| s.as_str())
+                .unwrap_or(&old_name);
+            (new_name.to_string(), value)
+        })
+        .collect();
+    result
+}
+
+fn build_query_args(
+    station: AisStationData,
+    weather: AisType8Dac200Fid31,
+    args: &State<ArgsState>,
+) -> Vec<(String, String)> {
+    let station_query = station.as_query_arguments(&args.mmsi_lookup);
+    let weather_query = build_and_filter_weather_data(weather, &args);
+    let weather_query = rename_weather_keys(weather_query, &args);
+    let author = vec![("author".to_string(), args.author_key.to_string())];
+
+    // Build the arg string
+    let mut query_args = vec![];
+    query_args.extend(station_query);
+    query_args.extend(weather_query);
+    query_args.extend(author);
+    let result_vector: Vec<(String, String)> = query_args
+        .into_iter()
+        .map(|(first, second)| (first.to_string(), second))
+        .collect();
+
+    result_vector
+}
 async fn send_to_erddap(
     station: AisStationData,
     weather: AisType8Dac200Fid31,
     args: State<ArgsState>,
 ) {
-    // FIXME From here to right before let client should be a function that returns the
-    // query vector after processing it to remove fields, and rename fields.
-
-    // Get the component vectors of kwargs
-    let asd_query = station.as_query_arguments(&args.mmsi_lookup);
-    let mut weather_query = weather.as_query_arguments();
-    let author = vec![("author", args.author_key.to_string())];
-    // Apply the filters specified in the TOML config. If the vector is empty, nothing is removed,
-    // to avoid having to list ALL the fields.
-    weather_query.retain(|&(key, _)| args.publish_fields.iter().any(|s| s == key));
-
-    // Rename the keys for the HTTP request based on the configuration in the TOML file
-    let result: Vec<(&str, String)> = weather_query
-        .into_iter()
-        .map(|(old_name, value)| {
-            let new_name = args
-                .rename_fields
-                .get(old_name)
-                .map(|s| s.as_str())
-                .unwrap_or(old_name);
-            (new_name, value)
-        })
-        .collect();
-
-    // Build the arg string
-    let mut query_args = vec![];
-    query_args.extend(asd_query);
-    query_args.extend(result);
-    query_args.extend(author);
+    let query_args = build_query_args(station, weather, &args);
 
     // Off to ERDDAP we go
     let client = reqwest::Client::new();
