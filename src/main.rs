@@ -39,6 +39,20 @@ enum Commands {
     Run(Run),
 }
 
+/// Initialize a configuration file; overwrites any existing configuration of the same name.
+/// The confy crate is used to determine the platform-appropriate directory to store the
+/// configuration file, and it will automatically add `.toml`.
+#[derive(Args)]
+struct Initialize {
+    /// Alternate configuration file to create; just the base name without .toml
+    #[arg(short, long, default_value_t = String::from("default-config"))]
+    config_file: String,
+}
+
+/// Show a user manual of sorts
+#[derive(Args)]
+struct Manual {}
+
 /// Run the HTTP listener to accept JSON packets and send them to ERDDAP
 #[derive(Args)]
 struct Run {
@@ -59,18 +73,7 @@ struct Run {
     dump_accepted_messages: bool,
 }
 
-/// Initialize a configuration file; overwrites any existing configuration of the same name
-#[derive(Args)]
-struct Initialize {
-    /// Alternate configuration file to load
-    #[arg(short, long, default_value_t = String::from("default-config"))]
-    config_file: String,
-}
-
-/// Show a user manual of sorts
-#[derive(Args)]
-struct Manual {}
-
+/// Dispatch the subcommands
 #[tokio::main]
 async fn main() {
     let args = Cli::parse();
@@ -93,6 +96,8 @@ async fn exec_init(args: &Initialize) {
     create_config(&args.config_file);
 }
 
+/// Process the configuration file into a state object, then start the webserver,
+/// listen for requests, process them, and send the resulting data to ERDDAP.
 async fn exec_run(args: &Run) {
     // load config
     let app_config = load_config(&args.config_file);
@@ -442,7 +447,7 @@ fn exec_user_manual() {
         ================
 
         This tool tries to send the entire IMO289 meteorological data set over to the ERDDAP service. If your service doesn't
-        have all the fields configured, you'll want to use the `publish_fields` option for a [[message_config]] to list all of
+        have all the fields configured, you'll want to use the `publish_fields` option to list all of
         the fields that you want to send. If the list is empty, all fields are published.
 
         You cannot filter the required `time` field, or the `mmsi` field.
