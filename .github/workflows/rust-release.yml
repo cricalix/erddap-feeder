@@ -16,14 +16,16 @@ jobs:
             bin: erddap-feeder
             name: erddap-feeder-linux-x86_64
             command: build
+          - release_for: Linux-arm7hf
+            os: ubuntu-latest
+            target: armv7-unknown-linux-gnueabihf
+            bin: erddap-feeder
+            name: erddap-feeder-linux-arm7hf
+            command: build
     runs-on: '${{ matrix.platform.os }}'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Setup caching
-        uses: Swatinem/rust-cache@v2
-        with:
-          cache-targets: false
       - name: Build binary
         uses: houseabsolute/actions-rust-cross@v0
         with:
