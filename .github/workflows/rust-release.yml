@@ -14,7 +14,7 @@ jobs:
             os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             bin: erddap-feeder
-            name: erddap-feeder-Linux-x86_64.tar.gz
+            name: erddap-feeder-linux-x86_64
             command: build
     runs-on: '${{ matrix.platform.os }}'
     steps:
