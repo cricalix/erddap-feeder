@@ -21,6 +21,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Build binary
+        uses: Swatinem/rust-cache@v2
+          cache-targets: 'false'
         uses: houseabsolute/actions-rust-cross@v0
         with:
           command: '${{ matrix.platform.command }}'
