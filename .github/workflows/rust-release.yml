@@ -20,9 +20,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Build binary
+      - name: Setup caching
         uses: Swatinem/rust-cache@v2
+        with:
           cache-targets: false
+      - name: Build binary
         uses: houseabsolute/actions-rust-cross@v0
         with:
           command: '${{ matrix.platform.command }}'
