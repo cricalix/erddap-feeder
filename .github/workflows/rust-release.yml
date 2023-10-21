@@ -16,12 +16,14 @@ jobs:
             bin: erddap-feeder
             name: erddap-feeder-linux-x86_64
             command: build
-          - release_for: Linux-arm7hf
-            os: ubuntu-latest
-            target: armv7-unknown-linux-gnueabihf
-            bin: erddap-feeder
-            name: erddap-feeder-linux-arm7hf
-            command: build
+            docker_platform: linux/amd64
+          # - release_for: Linux-arm7hf
+          #   os: ubuntu-latest
+          #   target: armv7-unknown-linux-gnueabihf
+          #   bin: erddap-feeder
+          #   name: erddap-feeder-linux-arm7hf
+          #   command: build
+          #   docker_platform: linux/arm/v7
     runs-on: '${{ matrix.platform.os }}'
     steps:
       -
@@ -61,8 +63,7 @@ jobs:
         name: Build and push
         uses: docker/build-push-action@v5
         with:
-          context: .
-          platforms: linux/amd64,linux/arm/v7
+          platforms: ${{ matrix.platform.docker_platform }}
           push: true
           tags: user/app:latest
           build-args: |
