@@ -8,7 +8,7 @@ RUN useradd -ms /bin/bash feeder
 
 ARG release_name
 
-COPY ./target/${release_name}/erddap-feeder /usr/local/bin
+COPY target/${release_name}/erddap-feeder /usr/local/bin
 
 USER feeder
 WORKDIR /home/feeder
