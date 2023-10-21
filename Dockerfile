@@ -6,7 +6,10 @@ RUN apt-get upgrade -y
 RUN apt-get install libssl3 -y
 RUN useradd -ms /bin/bash feeder
 
-COPY ./target/release/erddap-feeder /usr/local/bin
+ARG release_name
+
+COPY ./target/${release_name}/erddap-feeder /usr/local/bin
+
 USER feeder
 WORKDIR /home/feeder
 
