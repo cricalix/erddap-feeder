@@ -60,12 +60,21 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       -
+        name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: latest
+      -
         name: Build and push
         uses: docker/build-push-action@v5
         with:
           context: .
           platforms: ${{ matrix.platform.docker_platform }}
           push: true
-          tags: user/app:latest
+          tags: |
+            ${{ steps.meta.outputs.tags }}
+#            gchr.io/cricalix/erddap-feeder:latest
           build-args: |
             release_name=target/${{ matrix.platform.target }}/release/${{ matrix.platform.bin }}
