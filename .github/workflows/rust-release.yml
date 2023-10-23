@@ -47,6 +47,8 @@ jobs:
           tag: '${{ github.ref }}'
           body: 'Tag-based build-and-release'
       -
+        name: Upload artifacts
+      -
         name: Set up QEMU
         uses: docker/setup-qemu-action@v3
       -
@@ -68,4 +70,4 @@ jobs:
           push: true
           tags: user/app:latest
           build-args: |
-            release_name=${{ matrix.platform.target }}
+            release_name='target/${{ matrix.platform.target }}/release/${{ matrix.platform.bin }}'
