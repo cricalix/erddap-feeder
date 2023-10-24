@@ -70,7 +70,7 @@ jobs:
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=semvar,pattern={{raw}},value={{date 'YYYYMMDD-HHmmss' tz='Europe/Dublin'}}
+            type=raw,value={{date 'YYYYMMDD-HHmmss' tz='Europe/Dublin'}}
             type=sha,prefix=sha
             type=ref,event=tag
 
