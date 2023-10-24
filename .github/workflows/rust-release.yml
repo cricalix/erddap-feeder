@@ -128,15 +128,13 @@ jobs:
       -
         name: Create SHA manifest and push
         run: |
-          docker buildx imagetools create -t
-            ghcr.io/${{ github.repository }}:${{ github.sha }} \
+          docker buildx imagetools create -t ghcr.io/${{ github.repository }}:${{ github.sha }} \
             --amend ghcr.io/${{ github.repository }}:${{ github.sha }}-amd64 \
             --amend ghcr.io/${{ github.repository }}:${{ github.sha }}-armv7
       -
         name: Create latest manifest and push
         run: |
-          docker buildx imagetools create \
-            ghcr.io/${{ github.repository }}:latest \
+          docker buildx imagetools create -t ghcr.io/${{ github.repository }}:latest \
             --amend ghcr.io/${{ github.repository }}:latest-amd64 \
             --amend ghcr.io/${{ github.repository }}:latest-armv7
           docker manifest push ghcr.io/${{ github.repository }}:latest
