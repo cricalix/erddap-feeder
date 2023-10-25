@@ -22,6 +22,7 @@ jobs:
             release_for: Linux-armv7
             release_asset: erddap-feeder-linux-armv7
     runs-on: '${{ matrix.platform.os }}'
+    name: Build/Release ${{ matrix.platform.release_for }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
