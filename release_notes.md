@@ -1,1 +1,1 @@
-* Apply dependabot PR #5 and update all other dependencies
+* Update README.md with references to Docker setup from Github Container Registry

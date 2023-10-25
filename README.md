@@ -82,10 +82,28 @@ The `run` subcommand has several flags, see `erddap-feeder run --help`.
 
 ## Docker
 
-This application is not on any of the hubs right now, so you'll have to build from the Dockerfile. Running it is similar to running on a bare OS - initialize, edit the configuration, run.
+The Docker setup runs as a non-privileged user inside the container - `feeder`.
+
+### Via registry
+
+The Docker images are stored on the Github Container Registry - https://github.com/cricalix/erddap-feeder/pkgs/container/erddap-feeder
+
+Images are currently built for **linux/amd64** and **linux/arm/v7**.
+
+* `docker pull ghcr.io/cricalix/erddap-feeder:latest`
+* `mkdir $HOME/.config/erddap-feeder`
+  * Can be anywhere you want, that's just an example that mirrors the structure used by the program
+* `docker run --mount type=bind,source=$HOME/.config/erddap-feeder,target=/home/feeder/.config/erddap-feeder ghcr.io/cricalix/erddap-feeder initialize`
+  * Edit the configuration file in the source directory
+* `docker run --init --mount type=bind,source=$HOME/.config/erddap-feeder,target=/home/feeder/.config/erddap-feeder -p 22022:22022 ghcr.io/cricalix/erddap-feeder run`
+  * `--init` is required to have signals such as Ctrl-C passed through to the `erddap-feeder` process.
+
+### Building
+
+Building and running is similar to running on a bare OS - initialize, edit the configuration, run.
 
 * `cargo build --release`
-* `docker build -t erddap-feeder .`
+* `docker build -t erddap-feeder --build-arg release_name=target/release/erddap-feeder .`
 * `mkdir $HOME/.config/erddap-feeder`
   * Can be anywhere you want, that's just an example that mirrors the structure used by the program
 * `docker run --mount type=bind,source=$HOME/.config/erddap-feeder,target=/home/feeder/.config/erddap-feeder erddap-feeder initialize`
