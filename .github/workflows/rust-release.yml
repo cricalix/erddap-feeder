@@ -103,13 +103,13 @@ jobs:
           password: '${{ secrets.GITHUB_TOKEN }}'
       - name: Create merged docker image for SHA
         run: >
-          docker buildx imagetools create
-            -t ghcr.io/${{ github.repository }}:${{ github.sha }}
-            ghcr.io/${{ github.repository }}:${{ github.sha }}-amd64
+          docker buildx imagetools create \
+            -t ghcr.io/${{ github.repository }}:${{ github.sha }} \
+            ghcr.io/${{ github.repository }}:${{ github.sha }}-amd64 \
             ghcr.io/${{ github.repository }}:${{ github.sha }}-armv7
       - name: Create merged docker image for latest
         run: >
-          docker buildx imagetools create
-          -t ghcr.io/${{ github.repository }}:latest
-            ghcr.io/${{ github.repository }}:latest-amd64
+          docker buildx imagetools create \
+          -t ghcr.io/${{ github.repository }}:latest \
+            ghcr.io/${{ github.repository }}:latest-amd64 \
             ghcr.io/${{ github.repository }}:latest-armv7
