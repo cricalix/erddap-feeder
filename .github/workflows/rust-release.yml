@@ -5,135 +5,109 @@ name: Release
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+'
 jobs:
-  build-release-x86_64:
-    name: 'Release - Linux x86_64'
-    runs-on: ubuntu-latest
+  build-release:
+    name: Release - Linux amd64
+    strategy:
+      matrix:
+        platform:
+          - os: ubuntu-latest
+            bin: erddap-feeder
+            suffix: amd64
+            target: x86_64-unknown-linux-gnu
+            release_for: Linux-amd64
+            release_asset: erddap-feeder-linux-amd64
+          - os: ubuntu-latest
+            bin: erddap-feeder
+            suffix: armv7
+            target: armv7-unknown-linux-gnueabihf
+            release_for: Linux-armv7
+            release_asset: erddap-feeder-linux-armv7
+    runs-on: '${{ matrix.platform.os }}'
     steps:
-      -
-        name: Checkout
+      - name: Checkout
         uses: actions/checkout@v4
-      -
-        name: Build binary
+      - name: Build binary
         uses: houseabsolute/actions-rust-cross@v0
         with:
           command: build
-          target: x86_64-unknown-linux-gnu
+          target: '${{ matrix.platform.target }}'
           args: '--locked --release'
           strip: false
-      -
-        name: Upload binaries to release
+      - name: Load release notes
+        id: read_release
+        shell: bash
+        run: |
+          r=$(cat latest_release.md)
+          r="${r//'%'/'%25'}"       # Multiline escape sequences for %
+          r="${r//$'\n'/'%0A'}"     # Multiline escape sequences for '\n'
+          r="${r//$'\r'/'%0D'}"     # Multiline escape sequences for '\r'
+          echo "RELEASE_BODY=$r" >> $GITHUB_OUTPUT
+      - name: Upload binaries to release
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: '${{ secrets.GITHUB_TOKEN }}'
-          file: 'target/x86_64-unknown-linux-gnu/release/erddap-feeder'
-          asset_name: erddap-feeder-linux-amd64
+          file: target/${{ matrix.platform.target }}/release/${{ matrix.platform.bin }}
+          asset_name: '${{ matrix.platform.release_asset }}'
           tag: '${{ github.ref }}'
-          body: 'Tag-based build-and-release'
-      -
-        name: Set up QEMU
+          overwrite: true
+          body: |
+            ${{ steps.read_release.outputs.RELEASE_BODY }}
+      - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
-      -
-        name: Set up Docker Buildx
+      - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-      -
-        name: Login to GitHub Container Registry
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: 'ghcr.io/${{ github.repository }}'
+          tags: |
+            type=semver,pattern={{version}},suffix=${{ matrix.platform.suffix }}
+            type=raw,value={{date 'YYYYMMDD-HHmmss' tz='Europe/Dublin'}},suffix=${{ matrix.platform.suffix }}
+      - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      -
-        name: Build and push
+          username: '${{ github.actor }}'
+          password: '${{ secrets.GITHUB_TOKEN }}'
+      - name: Build and push
         uses: docker/build-push-action@v5
         with:
           context: .
-          platforms: linux/amd64
-          push: ${{ github.event_name != 'pull_request' }}
+          platforms: linux/${{ matrix.platform.suffix }}
+          push: '${{ github.event_name != ''pull_request'' }}'
           tags: |
-            ghcr.io/${{ github.repository }}:latest-amd64
-            ghcr.io/${{ github.repository }}:${{ github.sha }}-amd64
+            ${{ steps.meta.outputs.tags }}
+            ghcr.io/${{ github.repository }}:latest-${{ matrix.platform.suffix }}
+            ghcr.io/${{ github.repository }}:${{ github.sha }}-${{ matrix.platform.suffix }}
           build-args: |
-            release_name=target/x86_64-unknown-linux-gnu/release/erddap-feeder
-
-  build-release-armv7:
-    name: 'Release - Linux armv7'
-    runs-on: ubuntu-latest
-    steps:
-      -
-        name: Checkout
-        uses: actions/checkout@v4
-      -
-        name: Build binary
-        uses: houseabsolute/actions-rust-cross@v0
-        with:
-          command: build
-          target: armv7-unknown-linux-gnueabihf
-          args: '--locked --release'
-          strip: false
-      -
-        name: Upload binaries to release
-        uses: svenstaro/upload-release-action@v2
-        with:
-          repo_token: '${{ secrets.GITHUB_TOKEN }}'
-          file: 'target/armv7-unknown-linux-gnueabihf/release/erddap-feeder'
-          asset_name: erddap-feeder-linux-arm7hf
-          tag: '${{ github.ref }}'
-          body: 'Tag-based build-and-release'
-      -
-        name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-      -
-        name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      -
-        name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      -
-        name: Build and push
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          platforms: linux/arm/v7
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: |
-            ghcr.io/${{ github.repository }}:latest-armv7
-            ghcr.io/${{ github.repository }}:${{ github.sha }}-armv7
-          build-args: |
-            release_name=target/armv7-unknown-linux-gnueabihf/release/erddap-feeder
+            release_name=target/${{ matrix.platform.target }}/release/${{ matrix.platform.bin }}
   docker:
-    name: 'Docker multi-arch release'
-    needs: [build-release-x86_64, build-release-armv7]
+    name: Docker multi-arch release
+    needs: build-release
     runs-on: ubuntu-latest
     steps:
-      -
-        name: Checkout
+      - name: Checkout
         uses: actions/checkout@v4
-      -
-        name: Set up QEMU
+      - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
-      -
-        name: Set up Docker Buildx
+      - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-      -
-        name: Login to GitHub Container Registry
+      - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      -
-        name: Create SHA manifest and push
-        run: |
-          docker buildx imagetools create -t ghcr.io/${{ github.repository }}:${{ github.sha }} \
-            ghcr.io/${{ github.repository }}:${{ github.sha }}-amd64 \
+          username: '${{ github.actor }}'
+          password: '${{ secrets.GITHUB_TOKEN }}'
+      - name: Create merged docker image for SHA
+        run: >
+          docker buildx imagetools create
+            -t ghcr.io/${{ github.repository }}:${{ github.sha }}
+            ghcr.io/${{ github.repository }}:${{ github.sha }}-amd64
             ghcr.io/${{ github.repository }}:${{ github.sha }}-armv7
-      -
-        name: Create latest manifest and push
-        run: |
-          docker buildx imagetools create -t ghcr.io/${{ github.repository }}:latest \
-            ghcr.io/${{ github.repository }}:latest-amd64 \
+      - name: Create merged docker image for latest
+        run: >
+          docker buildx imagetools create
+          -t ghcr.io/${{ github.repository }}:latest
+            ghcr.io/${{ github.repository }}:latest-amd64
             ghcr.io/${{ github.repository }}:latest-armv7
