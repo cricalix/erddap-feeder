@@ -15,12 +15,14 @@ jobs:
             target: x86_64-unknown-linux-gnu
             release_for: Linux-amd64
             release_asset: erddap-feeder-linux-amd64
+            docker_platform: linux/amd64
           - os: ubuntu-latest
             bin: erddap-feeder
             suffix: armv7
             target: armv7-unknown-linux-gnueabihf
             release_for: Linux-armv7
             release_asset: erddap-feeder-linux-armv7
+            docker_platform: linux/arm/v7
     runs-on: '${{ matrix.platform.os }}'
     name: Build/Release ${{ matrix.platform.release_for }}
     steps:
@@ -62,8 +64,8 @@ jobs:
         with:
           images: 'ghcr.io/${{ github.repository }}'
           tags: |
-            type=semver,pattern={{version}},suffix=${{ matrix.platform.suffix }}
-            type=raw,value={{date 'YYYYMMDD-HHmmss' tz='Europe/Dublin'}},suffix=${{ matrix.platform.suffix }}
+            type=semver,pattern={{version}},suffix=-${{ matrix.platform.suffix }}
+            type=raw,value={{date 'YYYYMMDD' tz='Europe/Dublin'}},suffix=-${{ matrix.platform.suffix }}
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
@@ -74,7 +76,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          platforms: linux/${{ matrix.platform.suffix }}
+          platforms: ${{ matrix.platform.docker_platform }}
           push: '${{ github.event_name != ''pull_request'' }}'
           tags: |
             ${{ steps.meta.outputs.tags }}
