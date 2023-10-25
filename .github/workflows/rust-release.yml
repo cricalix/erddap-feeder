@@ -6,7 +6,6 @@ name: Release
       - 'v[0-9]+.[0-9]+.[0-9]+'
 jobs:
   build-release:
-    name: Release - Linux amd64
     strategy:
       matrix:
         platform:
