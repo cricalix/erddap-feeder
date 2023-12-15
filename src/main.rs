@@ -331,14 +331,13 @@ fn build_and_filter_weather_data(
 
 fn rename_weather_keys(
     weather_query: Vec<(String, String)>,
-    args: &State<ArgsState>,
+    renames: &HashMap<String, String>,
 ) -> Vec<(String, String)> {
     // Rename the keys for the HTTP request based on the configuration in the TOML file
     let result: Vec<(String, String)> = weather_query
         .into_iter()
         .map(|(old_name, value)| {
-            let new_name = args
-                .rename_fields
+            let new_name = renames
                 .get(&old_name)
                 .map(|s| s.as_str())
                 .unwrap_or(&old_name);
@@ -355,7 +354,7 @@ fn build_query_args(
 ) -> Vec<(String, String)> {
     let station_query = station.as_query_arguments(&args.mmsi_lookup);
     let weather_query = build_and_filter_weather_data(weather, &args);
-    let weather_query = rename_weather_keys(weather_query, &args);
+    let weather_query = rename_weather_keys(weather_query, &args.rename_fields);
     let author = vec![("author".to_string(), args.author_key.to_string())];
 
     // Build the arg string
@@ -454,4 +453,21 @@ fn exec_user_manual() {
 "
     }
     std::process::exit(0);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_rename_weather_keys() {
+        //weather_query: Vec<(String, String)>,
+        //args: &State<ArgsState>,
+        let wq = vec![("renameable".to_string(), "value".to_string())];
+        let mut renames = HashMap::new();
+        renames.insert("renameable".to_string(), "renamed".to_string());
+        let x = rename_weather_keys(wq, &renames);
+        let expected = vec![("renamed".to_string(), "value".to_string())];
+        assert_eq!(x, expected);
+    }
 }
