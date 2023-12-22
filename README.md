@@ -42,6 +42,10 @@ This should be a HTTPS URL that includes the full ERDDAP path to the tabledap, b
 
 This should be provided by your ERDDAP administrator (or you, if you're the administrator), and is the `author_key` in ERDDAP parlance.
 
+### accept_invalid_certificates
+
+This turns off certificate verification by the Rust SSL library. Only do this for testing, such as when using self-signed certificates on the ERDDAP service, or certificates that use a CA where the root certificate is not in the trust store of the machine running erddap-feeder.
+
 ### rename_fields
 
 This list of lists is used to rename fields from the datastructure into the names that the ERDDAP service is expecting. By default, "lat" and "lon" are converted to "latitude" and "longitude" (in the default configuration) - the IMO289 specification says lon/lat are the names, and this is what AIS-Catcher will send, but ERDDAP mandates that the fields are called longitude and latitude.

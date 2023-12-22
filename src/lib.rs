@@ -341,6 +341,9 @@ pub struct AppConfig {
     pub erddap_url: String,
     /// Username_Password author key for the ERDDAP service
     pub erddap_key: String,
+    /// Whether to accept invalid certificates, like unknown CA, expired, not for the
+    /// hostname etcetera
+    pub accept_invalid_certificates: bool,
     /// List of field names to publish to ERDDAP. This enables the ERDDAP service to be
     /// configured with a subset of the full IMO289 data, without having to recompile
     /// the code.
@@ -389,6 +392,9 @@ impl ::std::default::Default for AppConfig {
         Self {
             erddap_url: DEFAULT_URL.to_string(),
             erddap_key: DEFAULT_KEY.to_string(),
+            // Default mode is safe mode - only accept certificates with a good chain and
+            // recognised root certificates.
+            accept_invalid_certificates: false,
             publish_fields: vec![
                 "lat".to_string(),
                 "lon".to_string(),
@@ -433,6 +439,7 @@ pub struct ErddapResponse {
 pub struct ArgsState {
     pub url: String,
     pub author_key: String,
+    pub accept_invalid_certificates: bool,
     pub publish_fields: Vec<String>,
     pub rename_fields: HashMap<String, String>,
     pub dump_all_packets: bool,

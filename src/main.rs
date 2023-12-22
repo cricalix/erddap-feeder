@@ -102,6 +102,11 @@ async fn exec_run(args: &Run) {
     // load config
     let app_config = load_config(&args.config_file);
     tracing::info!("ERDDAP URL: {}", app_config.erddap_url);
+    tracing::info!(
+        "Accept self-signed certs: {}",
+        app_config.accept_invalid_certificates
+    );
+
     // Convert the config.mmsi_lookup vector of objects to a map of name to station id
     // This enables the station data as_query_arguments function to map the MMSI in the
     // input to a station name without hardcoding.
@@ -120,6 +125,7 @@ async fn exec_run(args: &Run) {
     let args_state = ArgsState {
         url: app_config.erddap_url,
         author_key: app_config.erddap_key,
+        accept_invalid_certificates: app_config.accept_invalid_certificates,
         publish_fields: app_config.publish_fields,
         rename_fields: rename_fields_map,
         dump_all_packets: args.dump_all_packets,
@@ -369,6 +375,7 @@ fn build_query_args(
 
     result_vector
 }
+
 async fn send_to_erddap(
     station: AisStationData,
     weather: AisType8Dac200Fid31,
@@ -377,11 +384,16 @@ async fn send_to_erddap(
     let query_args = build_query_args(station, weather, &args);
 
     // Off to ERDDAP we go
-    let client = reqwest::Client::new();
-    let body = client
+    let client = reqwest::Client::builder()
+        .danger_accept_invalid_certs(args.accept_invalid_certificates)
+        .referer(false)
+        .build()
+        .unwrap();
+    let response = client
         .get(format!("{}.insert", args.url))
-        .query(&query_args);
-    let response = body.send().await;
+        .query(&query_args)
+        .send()
+        .await;
 
     // Errors can happen
     if let Err(e) = response {
