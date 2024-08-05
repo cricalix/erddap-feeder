@@ -1,1 +1,1 @@
-* Add support for accept_invalid_certificates to disable certificate checking
+* Address dependabot updates; no code changes
